@@ -1,0 +1,62 @@
+# Compile Dynamo pour Windows et publie une nouvelle version a chaque changement de src/version.h.
+# Les copies de Dynamo installees chez les utilisateurs lisent "latest.txt" et se mettent a jour toutes seules.
+name: Compilation et publication
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer le compilateur Windows (MinGW-w64)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q g++-mingw-w64-x86-64-posix
+
+      - name: Compiler
+        env:
+          CXX: x86_64-w64-mingw32-g++-posix
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Preparer la publication
+        id: meta
+        run: |
+          VERSION=$(sed -n 's/^#define DYN_VERSION_STR *"\(.*\)".*/\1/p' src/version.h)
+          SHA=$(sha256sum build/Dynamo.exe | cut -d' ' -f1)
+          printf '%s\n%s\n' "$VERSION" "$SHA" > build/latest.txt
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION — SHA-256 $SHA"
+
+      - name: Garder le .exe de cette compilation
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dynamo-${{ steps.meta.outputs.version }}
+          path: build/Dynamo.exe
+
+      - name: Publier la version (si elle est nouvelle)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "La version $VERSION est deja publiee : rien a faire."
+            exit 0
+          fi
+          NOTES=$(awk -v v="## $VERSION" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md)
+          [ -n "$NOTES" ] || NOTES="Dynamo $VERSION"
+          gh release create "v$VERSION" build/Dynamo.exe build/latest.txt \
+            --title "Dynamo $VERSION" --notes "$NOTES" --latest

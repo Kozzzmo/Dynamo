@@ -1,0 +1,5 @@
+LIBRARY DynamoAPO
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
+    DynamoGetRegProps
