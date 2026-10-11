@@ -13,33 +13,26 @@
 #include "ui.h"
 #include "dsp.h"
 #include "version.h"
+#include "theme.h"
 
-// ---------------------------------------------------------------- palette
+// ---------------------------------------------------------------- palette (skin courant)
+static const Skin* TH = &kSkins[0];
 namespace col {
-static const ImU32 bg        = IM_COL32(17, 17, 19, 255);
-static const ImU32 panel     = IM_COL32(27, 27, 30, 255);
-static const ImU32 panelEdge = IM_COL32(40, 40, 45, 255);
-static const ImU32 well      = IM_COL32(11, 11, 12, 255);
-static const ImU32 grid      = IM_COL32(255, 255, 255, 16);
-static const ImU32 gridStrong= IM_COL32(255, 255, 255, 40);
-static const ImU32 text      = IM_COL32(232, 232, 236, 255);
-static const ImU32 dim       = IM_COL32(140, 140, 150, 255);
-static const ImU32 faint     = IM_COL32(90, 90, 98, 255);
-static const ImU32 accent    = IM_COL32(236, 56, 96, 255);
-static const ImU32 accentDim = IM_COL32(236, 56, 96, 60);
-static const ImU32 comp      = IM_COL32(46, 196, 182, 255);
-static const ImU32 compDim   = IM_COL32(46, 196, 182, 50);
-static const ImU32 lim       = IM_COL32(255, 176, 32, 255);
-static const ImU32 ok        = IM_COL32(64, 200, 110, 255);
-static const ImU32 warn      = IM_COL32(255, 176, 32, 255);
-static const ImU32 err       = IM_COL32(236, 70, 70, 255);
-static const ImU32 knobBg    = IM_COL32(46, 46, 52, 255);
-static const ImU32 knobBody  = IM_COL32(34, 34, 38, 255);
-static ImU32 band(int i, int a = 255) {
-    static const unsigned c[DYN_EQ_BANDS][3] = {
-        {255, 99, 99}, {255, 146, 76}, {255, 199, 64}, {196, 222, 70}, {98, 214, 122},
-        {60, 200, 190}, {70, 166, 255}, {120, 124, 255}, {182, 106, 255}, {240, 96, 200} };
-    return IM_COL32(c[i][0], c[i][1], c[i][2], a);
+static ImU32 bg, panel, panelEdge, well, grid, gridStrong, text, dim, faint, accent, comp, compDim, lim, ok, warn, err, knobBg, knobBody;
+static ImU32 band(int i, int a = 255) { return (TH->bands[i] & 0x00FFFFFF) | ((ImU32)a << 24); }
+static ImU32 alpha(ImU32 c, int a) { return (c & 0x00FFFFFF) | ((ImU32)a << 24); }
+static ImU32 mix(ImU32 a, ImU32 b, float t) {
+    ImVec4 x = ImGui::ColorConvertU32ToFloat4(a), y = ImGui::ColorConvertU32ToFloat4(b);
+    return ImGui::ColorConvertFloat4ToU32(ImVec4(x.x + (y.x - x.x) * t, x.y + (y.y - x.y) * t, x.z + (y.z - x.z) * t, x.w + (y.w - x.w) * t));
+}
+static void Load(const Skin& k) {
+    TH = &k;
+    bg = k.bg; panel = k.panel; panelEdge = k.panelEdge; well = k.lcdBg;
+    text = k.text; dim = k.dim; faint = k.faint;
+    grid = alpha(k.lcdDim, 40); gridStrong = alpha(k.lcdDim, 90);
+    accent = k.eq; comp = k.comp; compDim = alpha(k.comp, 55); lim = k.lim;
+    ok = k.ok; warn = k.warn; err = k.err;
+    knobBg = k.knobTrack; knobBody = k.knobBody;
 }
 }
 
@@ -59,48 +52,140 @@ static void FmtPct(char* b, size_t n, float v) { snprintf(b, n, "%.0f %%", v * 1
 static void FmtScHpf(char* b, size_t n, float v) { if (v <= 10.5f) snprintf(b, n, "Off"); else FmtHz(b, n, v); }
 
 // ---------------------------------------------------------------- style
+static float g_dpi = 1.f;
+
+static void ApplyImGuiColors() {
+    ImGuiStyle& s = ImGui::GetStyle();
+    const Skin& k = *TH;
+    s.WindowRounding = 0; s.ChildRounding = (k.radius + 2) * g_dpi; s.FrameRounding = k.radius * g_dpi;
+    s.PopupRounding = k.radius * g_dpi; s.GrabRounding = k.radius * g_dpi; s.ScrollbarRounding = k.radius * g_dpi; s.TabRounding = k.radius * g_dpi;
+    s.ChildBorderSize = k.edgeWidth; s.PopupBorderSize = 1.f; s.FrameBorderSize = 1.f; s.WindowBorderSize = 1.f;
+    ImVec4* c = s.Colors;
+    c[ImGuiCol_WindowBg] = V4(k.panel);
+    c[ImGuiCol_ChildBg] = V4(k.panel);
+    c[ImGuiCol_PopupBg] = V4(col::alpha(k.panel, 250));
+    c[ImGuiCol_Border] = V4(k.panelEdge);
+    c[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_Text] = V4(k.text);
+    c[ImGuiCol_TextDisabled] = V4(k.dim);
+    c[ImGuiCol_FrameBg] = V4(k.btnFill);
+    c[ImGuiCol_FrameBgHovered] = V4(col::mix(k.btnFill, k.text, 0.08f));
+    c[ImGuiCol_FrameBgActive] = V4(col::mix(k.btnFill, k.text, 0.14f));
+    c[ImGuiCol_Button] = V4(k.btnFill);
+    c[ImGuiCol_ButtonHovered] = V4(col::mix(k.btnFill, k.text, 0.10f));
+    c[ImGuiCol_ButtonActive] = V4(col::mix(k.btnFill, k.text, 0.18f));
+    c[ImGuiCol_Header] = V4(col::alpha(k.selFill, 70));
+    c[ImGuiCol_HeaderHovered] = V4(col::alpha(k.selFill, 50));
+    c[ImGuiCol_HeaderActive] = V4(col::alpha(k.selFill, 90));
+    c[ImGuiCol_CheckMark] = V4(k.selFill);
+    c[ImGuiCol_SliderGrab] = V4(k.selFill);
+    c[ImGuiCol_Separator] = V4(k.panelEdge);
+    c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.55f);
+    c[ImGuiCol_NavHighlight] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_TitleBg] = V4(k.panel);
+    c[ImGuiCol_TitleBgActive] = V4(k.panel);
+    c[ImGuiCol_TitleBgCollapsed] = V4(k.panel);
+    c[ImGuiCol_TextSelectedBg] = V4(col::alpha(k.selFill, 90));
+    c[ImGuiCol_ScrollbarBg] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_ScrollbarGrab] = V4(k.btnEdge);
+}
+
 void UiApplyStyle(float dpi) {
+    g_dpi = dpi;
     ImGuiStyle& s = ImGui::GetStyle();
     s = ImGuiStyle();
     ImGui::StyleColorsDark(&s);
-    s.WindowRounding = 0; s.ChildRounding = 10; s.FrameRounding = 7; s.PopupRounding = 8; s.GrabRounding = 6;
-    s.ScrollbarRounding = 6; s.TabRounding = 6;
-    s.WindowBorderSize = 0; s.ChildBorderSize = 1; s.PopupBorderSize = 1; s.FrameBorderSize = 0;
     s.WindowPadding = ImVec2(12, 12); s.FramePadding = ImVec2(10, 7); s.ItemSpacing = ImVec2(8, 8);
-    s.ItemInnerSpacing = ImVec2(6, 6); s.PopupBorderSize = 1;
-    ImVec4* c = s.Colors;
-    c[ImGuiCol_WindowBg] = V4(col::bg);
-    c[ImGuiCol_ChildBg] = V4(col::panel);
-    c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.12f, 0.135f, 0.98f);
-    c[ImGuiCol_Border] = V4(col::panelEdge);
-    c[ImGuiCol_Text] = V4(col::text);
-    c[ImGuiCol_TextDisabled] = V4(col::faint);
-    c[ImGuiCol_FrameBg] = V4(col::well);
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.08f, 0.08f, 0.09f, 1);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.10f, 0.10f, 0.11f, 1);
-    c[ImGuiCol_Button] = ImVec4(0.17f, 0.17f, 0.19f, 1);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.23f, 0.23f, 0.26f, 1);
-    c[ImGuiCol_ButtonActive] = ImVec4(0.28f, 0.28f, 0.31f, 1);
-    c[ImGuiCol_Header] = ImVec4(0.93f, 0.22f, 0.38f, 0.30f);
-    c[ImGuiCol_HeaderHovered] = ImVec4(0.93f, 0.22f, 0.38f, 0.45f);
-    c[ImGuiCol_HeaderActive] = ImVec4(0.93f, 0.22f, 0.38f, 0.60f);
-    c[ImGuiCol_CheckMark] = V4(col::accent);
-    c[ImGuiCol_SliderGrab] = V4(col::accent);
-    c[ImGuiCol_Separator] = V4(col::panelEdge);
-    c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.55f);
-    c[ImGuiCol_NavHighlight] = ImVec4(0, 0, 0, 0);
-    c[ImGuiCol_TitleBg] = ImVec4(0.14f, 0.14f, 0.16f, 1);
-    c[ImGuiCol_TitleBgActive] = ImVec4(0.16f, 0.16f, 0.18f, 1);
-    c[ImGuiCol_TitleBgCollapsed] = ImVec4(0.14f, 0.14f, 0.16f, 1);
-    c[ImGuiCol_TextSelectedBg] = ImVec4(0.93f, 0.22f, 0.38f, 0.35f);
+    s.ItemInnerSpacing = ImVec2(6, 6); s.WindowTitleAlign = ImVec2(0.0f, 0.5f);
     s.ScaleAllSizes(dpi);
+    ApplyImGuiColors();
 }
 
-// ---------------------------------------------------------------- widgets
+void UiSetSkin(UiContext& ui, int index) {
+    if (index < 0 || index >= kNumSkins) index = kDefaultSkin;
+    ui.skin = index;
+    const Skin& k = kSkins[index];
+    col::Load(k);
+    const UiFontSet& f = k.sansLabels ? ui.setSans : (k.num == NF_BLACK ? ui.setMonoBlack : ui.setMonoSerif);
+    if (f.body) { ui.fBody = f.body; ui.fSmall = f.small; ui.fLabel = f.label; ui.fValue = f.value; ui.fNum = f.num; }
+    if (ImGui::GetCurrentContext()) {
+        ImGui::GetIO().FontDefault = ui.fBody;
+        ApplyImGuiColors();
+    }
+    ui.captionColor = (unsigned long)((k.bg & 0xFF) | (k.bg & 0xFF00) | (k.bg & 0xFF0000));   // COLORREF = 0x00BBGGRR = ImU32 sans alpha
+    ui.captionText = (unsigned long)((k.text & 0xFF) | (k.text & 0xFF00) | (k.text & 0xFF0000));
+    ui.captionDirty = true;
+}
+
+// ---------------------------------------------------------------- texte
 static void TextAt(ImDrawList* dl, ImFont* f, ImVec2 p, ImU32 c, const char* t) { dl->AddText(f, f->FontSize, p, c, t); }
 static ImVec2 TextSize(ImFont* f, const char* t) { return f->CalcTextSizeA(f->FontSize, FLT_MAX, 0, t); }
 static void TextCentered(ImDrawList* dl, ImFont* f, ImVec2 center, ImU32 c, const char* t) {
     ImVec2 sz = TextSize(f, t); TextAt(dl, f, ImVec2(floorf(center.x - sz.x / 2), floorf(center.y - sz.y / 2)), c, t);
+}
+
+// Majuscules UTF-8 (francais : accents, oe)
+static std::string Upper(const char* s) {
+    std::string r;
+    const char* p = s;
+    while (*p) {
+        unsigned int c = 0;
+        int l = ImTextCharFromUtf8(&c, p, nullptr);
+        if (l <= 0) break;
+        if (c >= 'a' && c <= 'z') c -= 32;
+        else if (c >= 0xE0 && c <= 0xFE && c != 0xF7) c -= 0x20;
+        else if (c == 0x153) c = 0x152;
+        char buf[5]; ImTextCharToUtf8(buf, c);
+        r.append(buf);
+        p += l;
+    }
+    return r;
+}
+
+// Etiquettes espacees, comme sur Kinetik (IBM Plex Mono en capitales)
+static float Spacing(ImFont* f) { return TH->labelSpacing * f->FontSize; }
+static float SpacedWidth(ImFont* f, const char* s) {
+    float w = 0, sp = Spacing(f); int n = 0;
+    for (const char* p = s; *p;) {
+        unsigned int c; int l = ImTextCharFromUtf8(&c, p, nullptr); if (l <= 0) break;
+        w += f->GetCharAdvance((ImWchar)c); ++n; p += l;
+    }
+    return n ? w + sp * (n - 1) : 0.f;
+}
+static void SpacedText(ImDrawList* dl, ImFont* f, ImVec2 pos, ImU32 c, const char* s) {
+    float sp = Spacing(f);
+    if (sp <= 0.01f) { TextAt(dl, f, pos, c, s); return; }
+    float x = pos.x;
+    for (const char* p = s; *p;) {
+        unsigned int ch; int l = ImTextCharFromUtf8(&ch, p, nullptr); if (l <= 0) break;
+        dl->AddText(f, f->FontSize, ImVec2(floorf(x), pos.y), c, p, p + l);
+        x += f->GetCharAdvance((ImWchar)ch) + sp; p += l;
+    }
+}
+// align : 0 gauche, 1 centre, 2 droite (pos = point d'ancrage, centre vertical)
+static void Label(ImDrawList* dl, ImFont* f, ImVec2 pos, ImU32 c, const char* s, int align = 1) {
+    std::string u = Upper(s);
+    float w = SpacedWidth(f, u.c_str());
+    float x = align == 1 ? pos.x - w / 2 : (align == 2 ? pos.x - w : pos.x);
+    SpacedText(dl, f, ImVec2(floorf(x), floorf(pos.y - f->FontSize / 2)), c, u.c_str());
+}
+static float LabelWidth(ImFont* f, const char* s) { std::string u = Upper(s); return SpacedWidth(f, u.c_str()); }
+
+// halo lumineux (skin NEON)
+static void GlowText(ImDrawList* dl, ImFont* f, ImVec2 p, ImU32 c, ImU32 glowC, const char* t) {
+    if (TH->glow) {
+        const float r1 = S(1.6f), r2 = S(3.4f);
+        for (int i = 0; i < 8; ++i) {
+            float a = i * 3.14159f / 4;
+            dl->AddText(f, f->FontSize, ImVec2(p.x + cosf(a) * r2, p.y + sinf(a) * r2), col::alpha(glowC, 22), t);
+            dl->AddText(f, f->FontSize, ImVec2(p.x + cosf(a) * r1, p.y + sinf(a) * r1), col::alpha(glowC, 40), t);
+        }
+    }
+    dl->AddText(f, f->FontSize, p, c, t);
+}
+static void GlowDot(ImDrawList* dl, ImVec2 c, float r, ImU32 cl) {
+    if (TH->glow) for (int i = 4; i >= 1; --i) dl->AddCircleFilled(c, r * (1.f + i * 0.45f), col::alpha(cl, 14 + (4 - i) * 6), 20);
+    dl->AddCircleFilled(c, r, cl, 20);
 }
 
 static void Tip(const char* t) {
@@ -111,10 +196,14 @@ static void Tip(const char* t) {
     }
 }
 
+// ---------------------------------------------------------------- widgets
 enum KnobScale { KNOB_LIN, KNOB_LOG };
 
+// Potentiometre facon Kinetik : anneau de points (NEON / MIDNIGHT), arc epais (RISO) ou arc (CLASSIC).
+// Disposition : bouton, NOM en capitales espacees, valeur en chiffres serif.
 static bool Knob(const char* label, float* v, float vmin, float vmax, float vdef, Fmt fmt, KnobScale sc = KNOB_LIN,
-                 ImU32 color = col::accent, float width = 70, bool enabled = true, const char* tip = nullptr) {
+                 ImU32 color = 0, float width = 70, bool enabled = true, const char* tip = nullptr) {
+    if (!color) color = col::accent;
     ImGuiIO& io = ImGui::GetIO();
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float w = S(width), d = S(40);
@@ -135,7 +224,7 @@ static bool Knob(const char* label, float* v, float vmin, float vmax, float vdef
     }
     if (ImGui::BeginPopup("##edit")) {
         ImGui::PushFont(U->fSmall);
-        ImGui::TextDisabled("%s", label);
+        ImGui::TextDisabled("%s", Upper(label).c_str());
         ImGui::PopFont();
         float tmp = *v;
         ImGui::SetNextItemWidth(S(110));
@@ -147,103 +236,166 @@ static bool Knob(const char* label, float* v, float vmin, float vmax, float vdef
     }
     if (tip && hovered && !active) Tip(tip);
 
-    const ImU32 lc = enabled ? col::dim : col::faint;
-    TextCentered(dl, U->fSmall, ImVec2(p.x + w / 2, p.y + labelH / 2), lc, label);
-    ImVec2 c(p.x + w / 2, p.y + labelH + d / 2);
+    const bool hot = enabled && (hovered || active);
+    const ImVec2 c(p.x + w / 2, p.y + d / 2 + S(1));
     const float r = d / 2, a0 = 3.14159f * 0.75f, a1 = 3.14159f * 2.25f;
     float t = toN(*v); t = t < 0 ? 0 : (t > 1 ? 1 : t);
-    dl->PathArcTo(c, r - S(2), a0, a1, 40);
-    dl->PathStroke(col::knobBg, ImDrawFlags_None, S(4));
-    float tz = (vmin < 0 && vmax > 0 && sc == KNOB_LIN) ? toN(0) : 0.f;
-    float ta = std::min(t, tz), tb = std::max(t, tz);
-    if (tb - ta > 0.001f) {
-        dl->PathArcTo(c, r - S(2), a0 + (a1 - a0) * ta, a0 + (a1 - a0) * tb, 32);
-        dl->PathStroke(enabled ? color : col::faint, ImDrawFlags_None, S(4));
+    const bool bipolar = vmin < 0 && vmax > 0 && sc == KNOB_LIN;
+    const float tz = bipolar ? toN(0) : 0.f;
+    const float ta = std::min(t, tz), tb = std::max(t, tz);
+    const float ang = a0 + (a1 - a0) * t;
+    const ImVec2 dir(cosf(ang), sinf(ang));
+    const ImU32 hi = enabled ? color : TH->faint;
+
+    if (!enabled) {
+        dl->AddCircleFilled(c, r - S(6), col::mix(TH->knobBody, TH->panel, 0.6f), 32);
+        for (int i = 0; i < 24; ++i) {
+            float a = 6.28318f * i / 24.f;
+            dl->AddCircleFilled(ImVec2(c.x + cosf(a) * (r - S(6)), c.y + sinf(a) * (r - S(6))), S(0.7f), TH->knobTrack, 6);
+        }
+    } else if (TH->knob == KS_TICKS) {
+        const int n = 21;
+        for (int i = 0; i < n; ++i) {
+            const float tt = (float)i / (n - 1);
+            const float aa = a0 + (a1 - a0) * tt;
+            const bool lit = tt >= ta - 1e-4f && tt <= tb + 1e-4f && (tb - ta) > 1e-3f;
+            const ImVec2 pt(c.x + cosf(aa) * (r + S(1)), c.y + sinf(aa) * (r + S(1)));
+            dl->AddCircleFilled(pt, lit ? S(1.5f) : S(1.0f), lit ? hi : TH->knobTrack, 8);
+        }
+        if (TH->glow) for (int i = 3; i >= 1; --i) dl->AddCircleFilled(c, r - S(5) + S(2.5f) * i, col::alpha(hi, 8 + (3 - i) * 5), 32);
+        dl->AddCircleFilled(c, r - S(5), TH->knobBody, 32);
+        dl->AddCircle(c, r - S(5), hot ? hi : TH->knobRing, 32, hot ? S(1.6f) : S(1.1f));
+        dl->AddLine(ImVec2(c.x + dir.x * S(3), c.y + dir.y * S(3)), ImVec2(c.x + dir.x * (r - S(9)), c.y + dir.y * (r - S(9))),
+                    hot ? hi : TH->knobPointer, S(2.2f));
+    } else if (TH->knob == KS_ARC_THICK) {
+        dl->PathArcTo(c, r - S(2), a0, a1, 40); dl->PathStroke(TH->knobTrack, ImDrawFlags_None, S(5));
+        if (tb - ta > 0.001f) { dl->PathArcTo(c, r - S(2), a0 + (a1 - a0) * ta, a0 + (a1 - a0) * tb, 32); dl->PathStroke(hi, ImDrawFlags_None, S(5)); }
+        dl->AddCircleFilled(c, r - S(7), TH->knobBody, 32);
+        dl->AddCircle(c, r - S(7), TH->knobRing, 32, S(1.2f));
+        dl->AddLine(ImVec2(c.x + dir.x * S(4), c.y + dir.y * S(4)), ImVec2(c.x + dir.x * (r - S(10)), c.y + dir.y * (r - S(10))), TH->knobPointer, S(2.2f));
+    } else {
+        dl->AddCircleFilled(c, r + S(1), TH->inner, 32);
+        dl->PathArcTo(c, r - S(2), a0, a1, 40); dl->PathStroke(TH->knobTrack, ImDrawFlags_None, S(4));
+        if (tb - ta > 0.001f) { dl->PathArcTo(c, r - S(2), a0 + (a1 - a0) * ta, a0 + (a1 - a0) * tb, 32); dl->PathStroke(hi, ImDrawFlags_None, S(4)); }
+        dl->AddCircleFilled(c, r - S(7), hot ? col::mix(TH->knobBody, IM_COL32(255, 255, 255, 255), 0.08f) : TH->knobBody, 32);
+        dl->AddLine(ImVec2(c.x + dir.x * (r - S(15)), c.y + dir.y * (r - S(15))), ImVec2(c.x + dir.x * (r - S(8)), c.y + dir.y * (r - S(8))), TH->knobPointer, S(2.5f));
     }
-    dl->AddCircleFilled(c, r - S(7), (hovered || active) && enabled ? IM_COL32(44, 44, 50, 255) : col::knobBody, 32);
-    float ang = a0 + (a1 - a0) * t;
-    ImVec2 dir(cosf(ang), sinf(ang));
-    dl->AddLine(ImVec2(c.x + dir.x * (r - S(15)), c.y + dir.y * (r - S(15))), ImVec2(c.x + dir.x * (r - S(8)), c.y + dir.y * (r - S(8))),
-                enabled ? col::text : col::faint, S(2.5f));
+    Label(dl, U->fSmall, ImVec2(p.x + w / 2, p.y + d + S(4) + labelH / 2), enabled ? TH->text : TH->faint, label);
     char buf[32]; fmt(buf, sizeof(buf), *v);
-    TextCentered(dl, U->fValue, ImVec2(p.x + w / 2, p.y + labelH + d + valueH / 2 + S(1)), enabled ? col::text : col::faint, buf);
+    TextCentered(dl, U->fValue, ImVec2(p.x + w / 2, p.y + d + labelH + valueH / 2 + S(3)), enabled ? (hot ? hi : TH->text) : TH->faint, buf);
     ImGui::PopID();
     return changed;
 }
 
-static bool Toggle(const char* id, int* v, ImU32 onColor = col::accent, const char* tip = nullptr) {
+// Bouton facon Kinetik : fond + filet, plein (selFill) quand il est actif. Texte en capitales espacees.
+static bool KButton(const char* label, ImVec2 size = ImVec2(0, 0), bool on = false, bool enabled = true, const char* tip = nullptr) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImFont* f = U->fLabel;
+    const char* vis = label; const char* hash = strstr(label, "##");
+    std::string text = hash ? std::string(label, hash) : std::string(label);
+    float tw = LabelWidth(f, text.c_str());
+    if (size.x <= 0) size.x = tw + S(24);
+    if (size.y <= 0) size.y = S(30);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::BeginDisabled(!enabled);
+    bool clicked = ImGui::InvisibleButton(vis, size);
+    bool hov = ImGui::IsItemHovered(), held = ImGui::IsItemActive();
+    ImGui::EndDisabled();
+    if (tip) Tip(tip);
+    ImVec2 q(p.x + size.x, p.y + size.y);
+    const float rad = S(TH->radius);
+    ImU32 fill = on ? TH->selFill : TH->btnFill, edge = on ? TH->selFill : TH->btnEdge, tc = on ? TH->selText : TH->btnText;
+    if (enabled && !on && hov) { fill = col::mix(fill, TH->text, 0.07f); edge = TH->dim; }
+    if (enabled && held) fill = col::mix(fill, TH->text, 0.14f);
+    if (!enabled) { fill = col::alpha(fill, 110); edge = col::alpha(edge, 110); tc = col::alpha(tc, 100); }
+    dl->AddRectFilled(p, q, fill, rad);
+    if (!on) dl->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f), ImVec2(q.x - 0.5f, q.y - 0.5f), edge, rad, 0, TH->edgeWidth);
+    Label(dl, f, ImVec2((p.x + q.x) / 2, (p.y + q.y) / 2 + S(0.5f)), tc, text.c_str());
+    return clicked && enabled;
+}
+
+// Interrupteur : petite LED + cadre (meme langage que les touches MUTE / FILL de Kinetik)
+static bool Toggle(const char* id, int* v, ImU32 onColor = 0, const char* tip = nullptr) {
+    if (!onColor) onColor = col::accent;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p = ImGui::GetCursorScreenPos();
-    const float h = S(18), w = S(32);
+    const float h = S(18), w = S(34);
     ImGui::PushID(id);
     bool clicked = ImGui::InvisibleButton("##t", ImVec2(w, h));
     if (clicked) *v = !*v;
     bool hov = ImGui::IsItemHovered();
     if (tip) Tip(tip);
     ImGui::PopID();
-    ImU32 bgc = *v ? onColor : (hov ? IM_COL32(70, 70, 78, 255) : IM_COL32(56, 56, 62, 255));
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), bgc, h / 2);
-    float kx = *v ? p.x + w - h / 2 : p.x + h / 2;
-    dl->AddCircleFilled(ImVec2(kx, p.y + h / 2), h / 2 - S(3), IM_COL32(245, 245, 248, 255), 20);
+    const float rad = std::min(h / 2, S(TH->radius + 2));
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), *v ? col::alpha(onColor, TH->halftone ? 255 : 46) : TH->btnFill, rad);
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), *v ? onColor : (hov ? TH->dim : TH->btnEdge), rad, 0, TH->edgeWidth);
+    const float kx = *v ? p.x + w - h / 2 : p.x + h / 2;
+    if (*v) GlowDot(dl, ImVec2(kx, p.y + h / 2), h / 2 - S(4), TH->halftone ? TH->accentText : onColor);
+    else dl->AddCircleFilled(ImVec2(kx, p.y + h / 2), h / 2 - S(4.5f), TH->faint, 16);
     return clicked;
 }
 
-static bool Segmented(const char* id, int* v, const char* const* items, int n, float itemW, ImU32 onColor = col::accent) {
-    ImDrawList* dl = ImGui::GetWindowDrawList();
+// Rangee d'onglets (comme les pages ECHO / REVERB / MASTER)
+static bool Segmented(const char* id, int* v, const char* const* items, int n, float itemW, ImU32 onColor = 0) {
+    (void)onColor;
     ImVec2 p = ImGui::GetCursorScreenPos();
     const float h = S(24), w = S(itemW);
     bool changed = false;
-    dl->AddRectFilled(p, ImVec2(p.x + w * n, p.y + h), col::well, S(6));
     ImGui::PushID(id);
     for (int i = 0; i < n; ++i) {
-        ImGui::SetCursorScreenPos(ImVec2(p.x + w * i, p.y));
+        ImGui::SetCursorScreenPos(ImVec2(p.x + (w + S(4)) * i, p.y));
         ImGui::PushID(i);
-        if (ImGui::InvisibleButton("##s", ImVec2(w, h)) && *v != i) { *v = i; changed = true; }
-        bool hov = ImGui::IsItemHovered();
+        if (KButton(items[i], ImVec2(w, h), *v == i) && *v != i) { *v = i; changed = true; }
         ImGui::PopID();
-        ImVec2 a(p.x + w * i + S(2), p.y + S(2)), b(p.x + w * (i + 1) - S(2), p.y + h - S(2));
-        if (*v == i) dl->AddRectFilled(a, b, (onColor & 0x00FFFFFF) | 0x50000000, S(5));
-        else if (hov) dl->AddRectFilled(a, b, IM_COL32(255, 255, 255, 12), S(5));
-        TextCentered(dl, U->fSmall, ImVec2((a.x + b.x) / 2, (a.y + b.y) / 2), *v == i ? col::text : col::dim, items[i]);
     }
     ImGui::PopID();
     ImGui::SetCursorScreenPos(p);
-    ImGui::Dummy(ImVec2(w * n, h));
+    ImGui::Dummy(ImVec2((w + S(4)) * n - S(4), h));
     return changed;
 }
 
-static void SectionTitle(const char* t, ImU32 c = col::dim) {
+static void SectionTitle(const char* t, ImU32 c = 0) {
+    if (!c) c = TH->halftone ? TH->text : TH->dim;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p = ImGui::GetCursorScreenPos();
-    TextAt(dl, U->fLabel, ImVec2(p.x, p.y + S(1)), c, t);
-    ImVec2 sz = TextSize(U->fLabel, t);
-    ImGui::Dummy(ImVec2(sz.x, S(18)));
+    float w = LabelWidth(U->fLabel, t);
+    Label(dl, U->fLabel, ImVec2(p.x, p.y + S(9)), c, t, 0);
+    ImGui::Dummy(ImVec2(w, S(18)));
 }
 
-// vumetre vertical (dB)
+// vumetre vertical a LED segmentees (dB)
 static void Meter(ImVec2 p, ImVec2 size, float db, float holdDb) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), col::well, S(3));
-    auto y = [&](float v) { float t = (v + 60.f) / 66.f; t = t < 0 ? 0 : (t > 1 ? 1 : t); return p.y + size.y - t * size.y; };
-    float yl = y(db);
-    if (db > -60) {
-        float y18 = y(-18), y6 = y(-6), y0 = y(0);
-        ImVec2 a(p.x + S(1), 0), b(p.x + size.x - S(1), 0);
-        // vert
-        dl->AddRectFilled(ImVec2(a.x, std::max(yl, y18)), ImVec2(b.x, p.y + size.y - S(1)), IM_COL32(64, 200, 110, 255), S(2));
-        if (yl < y18) dl->AddRectFilled(ImVec2(a.x, std::max(yl, y6)), ImVec2(b.x, y18), IM_COL32(210, 210, 70, 255));
-        if (yl < y6)  dl->AddRectFilled(ImVec2(a.x, std::max(yl, y0)), ImVec2(b.x, y6), IM_COL32(255, 150, 40, 255));
-        if (yl < y0)  dl->AddRectFilled(ImVec2(a.x, yl), ImVec2(b.x, y0), IM_COL32(236, 56, 70, 255));
+    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), TH->lcdBg, S(2));
+    auto lv = [](float y01) { return -60.f + y01 * 66.f; };
+    const float seg = S(3.f), gap = S(1.5f);
+    const int n = (int)((size.y - S(2)) / (seg + gap));
+    for (int i = 0; i < n; ++i) {
+        float y1 = p.y + size.y - S(1) - i * (seg + gap);
+        float level = lv((float)(i + 0.5f) / n);
+        bool lit = db > -60 && level <= db;
+        ImU32 c = level > 0 ? TH->meterClip : level > -6 ? TH->meterHigh : level > -18 ? TH->meterMid : TH->meterLow;
+        dl->AddRectFilled(ImVec2(p.x + S(1.5f), y1 - seg), ImVec2(p.x + size.x - S(1.5f), y1), lit ? c : TH->ledOff, S(0.8f));
     }
-    if (holdDb > -60) { float yh = y(holdDb); dl->AddLine(ImVec2(p.x, yh), ImVec2(p.x + size.x, yh), holdDb > 0 ? col::err : col::text, S(1.5f)); }
+    if (holdDb > -60) {
+        float t = (holdDb + 60.f) / 66.f; t = t > 1 ? 1 : t;
+        float yh = p.y + size.y - t * size.y;
+        dl->AddLine(ImVec2(p.x + S(1), yh), ImVec2(p.x + size.x - S(1), yh), holdDb > 0 ? TH->meterClip : TH->text, S(1.5f));
+    }
 }
 
-// reduction de gain (descend depuis le haut)
+// reduction de gain (LED qui descendent depuis le haut)
 static void GrMeter(ImVec2 p, ImVec2 size, float grDb, ImU32 c, float range = 24.f) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), col::well, S(3));
+    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), TH->lcdBg, S(2));
+    const float seg = S(3.f), gap = S(1.5f);
+    const int n = (int)((size.y - S(2)) / (seg + gap));
     float t = grDb / range; t = t < 0 ? 0 : (t > 1 ? 1 : t);
-    if (t > 0.002f) dl->AddRectFilled(ImVec2(p.x + S(1), p.y + S(1)), ImVec2(p.x + size.x - S(1), p.y + S(1) + t * (size.y - S(2))), c, S(2));
+    for (int i = 0; i < n; ++i) {
+        float y0 = p.y + S(1) + i * (seg + gap);
+        bool lit = (float)(i + 0.5f) / n <= t;
+        dl->AddRectFilled(ImVec2(p.x + S(1.5f), y0), ImVec2(p.x + size.x - S(1.5f), y0 + seg), lit ? c : TH->ledOff, S(0.8f));
+    }
 }
 
 static void MeterScale(ImVec2 p, float h, bool rightAlign) {
@@ -256,7 +408,7 @@ static void MeterScale(ImVec2 p, float h, bool rightAlign) {
         lastY = y;
         char b[8]; snprintf(b, sizeof(b), "%d", m);
         ImVec2 sz = TextSize(U->fSmall, b);
-        TextAt(dl, U->fSmall, ImVec2(rightAlign ? p.x - sz.x : p.x, y - sz.y / 2), col::faint, b);
+        TextAt(dl, U->fSmall, ImVec2(rightAlign ? p.x - sz.x : p.x, y - sz.y / 2), TH->faint, b);
     }
 }
 
@@ -266,35 +418,48 @@ static bool IconButton(const char* id, ImVec2 size, bool on, void (*draw)(ImDraw
     bool clicked = ImGui::InvisibleButton(id, size);
     bool hov = ImGui::IsItemHovered();
     if (tip) Tip(tip);
+    const float rad = S(TH->radius);
+    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), hov ? col::mix(TH->btnFill, TH->text, 0.07f) : TH->btnFill, rad);
+    dl->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f), ImVec2(p.x + size.x - 0.5f, p.y + size.y - 0.5f), hov ? TH->dim : TH->btnEdge, rad, 0, TH->edgeWidth);
     ImVec2 c(p.x + size.x / 2, p.y + size.y / 2);
-    if (hov) dl->AddCircleFilled(c, size.x / 2, IM_COL32(255, 255, 255, 18), 32);
-    draw(dl, c, size.x * 0.5f, on ? col::accent : (hov ? col::text : col::dim));
+    ImU32 ic = on ? (TH->halftone ? TH->text : TH->accent) : (hov ? TH->text : TH->dim);
+    if (on && TH->glow) for (int i = 3; i >= 1; --i) dl->AddCircleFilled(c, size.x * (0.22f + 0.07f * i), col::alpha(ic, 10 + (3 - i) * 6), 24);
+    draw(dl, c, size.x * 0.5f, ic);
     return clicked;
 }
 
 static void DrawPower(ImDrawList* dl, ImVec2 c, float r, ImU32 cl) {
-    float rr = r * 0.52f;
+    float rr = r * 0.46f;
     dl->PathArcTo(c, rr, -3.14159f * 0.5f + 0.75f, 3.14159f * 1.5f - 0.75f, 32);
-    dl->PathStroke(cl, ImDrawFlags_None, S(2.4f));
-    dl->AddLine(ImVec2(c.x, c.y - rr - S(2)), ImVec2(c.x, c.y - S(1)), cl, S(2.4f));
+    dl->PathStroke(cl, ImDrawFlags_None, S(2.2f));
+    dl->AddLine(ImVec2(c.x, c.y - rr - S(2)), ImVec2(c.x, c.y - S(1)), cl, S(2.2f));
 }
 static void DrawGear(ImDrawList* dl, ImVec2 c, float r, ImU32 cl) {
-    float ro = r * 0.55f, ri = r * 0.40f;
+    float ro = r * 0.50f, ri = r * 0.36f;
     for (int i = 0; i < 8; ++i) {
         float a = i * 3.14159f / 4;
         ImVec2 d(cosf(a), sinf(a));
-        dl->AddLine(ImVec2(c.x + d.x * ri, c.y + d.y * ri), ImVec2(c.x + d.x * ro, c.y + d.y * ro), cl, S(3.2f));
+        dl->AddLine(ImVec2(c.x + d.x * ri, c.y + d.y * ri), ImVec2(c.x + d.x * ro, c.y + d.y * ro), cl, S(3.0f));
     }
-    dl->AddCircle(c, ri, cl, 24, S(2.2f));
-    dl->AddCircleFilled(c, r * 0.14f, cl, 12);
+    dl->AddCircle(c, ri, cl, 24, S(2.0f));
+    dl->AddCircleFilled(c, r * 0.12f, cl, 12);
 }
-static void DrawLogo(ImDrawList* dl, ImVec2 p, float h) {
-    const float bw = h * 0.16f, gap = h * 0.08f;
-    const float hs[4] = { 0.45f, 0.8f, 1.0f, 0.62f };
-    for (int i = 0; i < 4; ++i) {
-        float x = p.x + i * (bw + gap);
-        dl->AddRectFilled(ImVec2(x, p.y + h * (1 - hs[i])), ImVec2(x + bw, p.y + h), col::accent, bw * 0.3f);
+
+// etoile a quatre branches du logo Kinetik / J-Slice
+static void DrawSparkle(ImDrawList* dl, ImVec2 c, float s, ImU32 cl) {
+    ImVec2 pts[64]; int n = 0;
+    const ImVec2 tips[4] = { ImVec2(0, -1), ImVec2(1, 0), ImVec2(0, 1), ImVec2(-1, 0) };
+    for (int q = 0; q < 4; ++q) {
+        ImVec2 a = tips[q], b = tips[(q + 1) % 4];
+        ImVec2 ctrl((a.x + b.x) * 0.18f, (a.y + b.y) * 0.18f);
+        for (int k = 0; k < 16; ++k) {
+            float t = k / 16.f, u = 1 - t;
+            float x = u * u * a.x + 2 * u * t * ctrl.x + t * t * b.x;
+            float y = u * u * a.y + 2 * u * t * ctrl.y + t * t * b.y;
+            pts[n++] = ImVec2(c.x + x * s, c.y + y * s);
+        }
     }
+    dl->AddConcavePolyFilled(pts, n, cl);
 }
 
 // ---------------------------------------------------------------- panneau
@@ -306,6 +471,12 @@ static bool BeginPanel(const char* id, ImVec2 pos, ImVec2 size) {
     return r;
 }
 static void EndPanel() { ImGui::EndChild(); }
+
+// ecran (fond LCD + filet), comme les afficheurs PAT / BPM de Kinetik
+static void Screen(ImDrawList* dl, ImVec2 a, ImVec2 b) {
+    dl->AddRectFilled(a, b, TH->lcdBg, S(TH->radius + 1));
+    dl->AddRect(ImVec2(a.x + 0.5f, a.y + 0.5f), ImVec2(b.x - 0.5f, b.y - 0.5f), TH->panelEdge, S(TH->radius + 1), 0, TH->edgeWidth);
+}
 
 // ---------------------------------------------------------------- egaliseur
 static const char* kTypeNames[EQ_TYPE_COUNT] = { "Cloche", "Plateau grave", "Plateau aigu", "Coupe-bas", "Coupe-haut", "Réjection" };
@@ -334,7 +505,7 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
     auto G = [&](float y) { return -((y - (g0.y + g1.y) / 2) / (gh / 2)) * gRange; };
     bool changed = false;
 
-    dl->AddRectFilled(g0, g1, col::well, S(6));
+    Screen(dl, g0, g1);
     dl->PushClipRect(g0, g1, true);
     const ImDrawListFlags savedFlags = dl->Flags;
     // grille
@@ -355,9 +526,9 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
             ImVec2 b(X(sqrtf(f1 * powf(1000.f, 1.f / n) * f1)), sy(app.spectrum[i + 1]));
             ImVec2 q[4] = { ImVec2(a.x, g1.y), a, b, ImVec2(b.x, g1.y) };
             dl->Flags &= ~ImDrawListFlags_AntiAliasedFill;
-            dl->AddConvexPolyFilled(q, 4, IM_COL32(120, 160, 255, 26));
+            dl->AddConvexPolyFilled(q, 4, col::alpha(TH->lcdDim, 34));
             dl->Flags = savedFlags;
-            dl->AddLine(a, b, IM_COL32(140, 175, 255, 70), S(1));
+            dl->AddLine(a, b, col::alpha(TH->lcdDim, 90), S(1));
         }
     }
 
@@ -392,11 +563,15 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
         dl->Flags &= ~ImDrawListFlags_AntiAliasedFill;
         for (int k = 0; k < npts - 1; ++k) {
             ImVec2 a = curve[k], b = curve[k + 1];
-            if ((a.y - z) * (b.y - z) >= 0) { ImVec2 q[4] = { ImVec2(a.x, z), a, b, ImVec2(b.x, z) }; dl->AddConvexPolyFilled(q, 4, IM_COL32(255, 255, 255, 22)); }
+            if ((a.y - z) * (b.y - z) >= 0) { ImVec2 q[4] = { ImVec2(a.x, z), a, b, ImVec2(b.x, z) }; dl->AddConvexPolyFilled(q, 4, col::alpha(TH->curve, 26)); }
         }
         dl->Flags = savedFlags;
     }
-    dl->AddPolyline(curve.data(), npts, P.eqEnabled ? IM_COL32(245, 245, 250, 255) : col::faint, ImDrawFlags_None, S(2.2f));
+    if (P.eqEnabled && TH->glow) {
+        dl->AddPolyline(curve.data(), npts, col::alpha(TH->eq, 30), ImDrawFlags_None, S(8.f));
+        dl->AddPolyline(curve.data(), npts, col::alpha(TH->eq, 60), ImDrawFlags_None, S(4.5f));
+    }
+    dl->AddPolyline(curve.data(), npts, P.eqEnabled ? TH->curve : TH->faint, ImDrawFlags_None, S(2.2f));
 
     // noeuds
     ImVec2 nodePos[DYN_EQ_BANDS];
@@ -410,11 +585,11 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
     // axes
     const float lf[] = { 50, 100, 200, 500, 1000, 2000, 5000, 10000 };
     const char* ll[] = { "50", "100", "200", "500", "1k", "2k", "5k", "10k" };
-    for (int i = 0; i < 8; ++i) TextCentered(dl, U->fSmall, ImVec2(X(lf[i]), g1.y + padB / 2 + S(1)), col::faint, ll[i]);
+    for (int i = 0; i < 8; ++i) TextCentered(dl, U->fSmall, ImVec2(X(lf[i]), g1.y + padB / 2 + S(1)), TH->dim, ll[i]);
     for (int db = -18; db <= 18; db += 6) {
         char b[8]; snprintf(b, sizeof(b), db > 0 ? "+%d" : "%d", db);
         ImVec2 sz = TextSize(U->fSmall, b);
-        TextAt(dl, U->fSmall, ImVec2(g0.x - sz.x - S(6), Y((float)db) - sz.y / 2), col::faint, b);
+        TextAt(dl, U->fSmall, ImVec2(g0.x - sz.x - S(6), Y((float)db) - sz.y / 2), TH->dim, b);
     }
 
     // interaction
@@ -464,11 +639,12 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
         if (i == hoverBand || i == g_dragBand) r += S(1.5f);
         if (isSel) dl->AddCircle(c, r + S(3.5f), col::band(i, 120), 32, S(1.5f));
         if (b.enabled && P.eqEnabled) {
+            if (TH->glow) for (int g = 3; g >= 1; --g) dl->AddCircleFilled(c, r + S(2.5f) * g, col::band(i, 10 + (3 - g) * 7), 24);
             dl->AddCircleFilled(c, r, col::band(i), 32);
             char n[4]; snprintf(n, sizeof(n), "%d", i + 1);
-            TextCentered(dl, U->fSmall, c, IM_COL32(20, 20, 22, 255), n);
+            TextCentered(dl, U->fSmall, c, TH->nodeText, n);
         } else {
-            dl->AddCircleFilled(c, r, col::well, 32);
+            dl->AddCircleFilled(c, r, TH->lcdBg, 32);
             dl->AddCircle(c, r, col::band(i, 140), 32, S(1.5f));
             char n[4]; snprintf(n, sizeof(n), "%d", i + 1);
             TextCentered(dl, U->fSmall, c, col::band(i, 180), n);
@@ -489,7 +665,8 @@ static bool EqGraph(App& app, ImVec2 p, ImVec2 size) {
         ImVec2 c = nodePos[g_dragBand];
         ImVec2 sz = TextSize(U->fSmall, t);
         ImVec2 bp(std::min(c.x + S(14), g1.x - sz.x - S(12)), std::max(g0.y + S(4), c.y - S(30)));
-        dl->AddRectFilled(bp, ImVec2(bp.x + sz.x + S(12), bp.y + sz.y + S(8)), IM_COL32(0, 0, 0, 200), S(4));
+        dl->AddRectFilled(bp, ImVec2(bp.x + sz.x + S(12), bp.y + sz.y + S(8)), col::alpha(TH->panel, 235), S(TH->radius));
+        dl->AddRect(bp, ImVec2(bp.x + sz.x + S(12), bp.y + sz.y + S(8)), TH->panelEdge, S(TH->radius));
         TextAt(dl, U->fSmall, ImVec2(bp.x + S(6), bp.y + S(4)), col::text, t);
     }
 
@@ -513,14 +690,14 @@ static void TransferGraph(App& app, ImVec2 p, float sz, int band) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const DynCompBand& c = app.params.comp[band];
     ImVec2 a = p, b(p.x + sz, p.y + sz);
-    dl->AddRectFilled(a, b, col::well, S(6));
+    Screen(dl, a, b);
     auto X = [&](float db) { return a.x + (db + 60.f) / 60.f * sz; };
     auto Y = [&](float db) { float t = (db + 60.f) / 60.f; t = t < 0 ? 0 : (t > 1 ? 1 : t); return b.y - t * sz; };
     for (int d = -48; d <= -12; d += 12) {
         dl->AddLine(ImVec2(X((float)d), a.y), ImVec2(X((float)d), b.y), col::grid);
         dl->AddLine(ImVec2(a.x, Y((float)d)), ImVec2(b.x, Y((float)d)), col::grid);
     }
-    dl->AddLine(ImVec2(a.x, b.y), ImVec2(b.x, a.y), IM_COL32(255, 255, 255, 30), S(1));
+    dl->AddLine(ImVec2(a.x, b.y), ImVec2(b.x, a.y), col::alpha(TH->lcdDim, 70), S(1));
     bool on = app.params.compEnabled && c.enabled;
     ImU32 cc = on ? col::comp : col::faint;
     dl->AddLine(ImVec2(X(c.threshold), a.y), ImVec2(X(c.threshold), b.y), (cc & 0x00FFFFFF) | 0x50000000, S(1));
@@ -531,21 +708,21 @@ static void TransferGraph(App& app, ImVec2 p, float sz, int band) {
         pts[i] = ImVec2(X(in), Y(out));
     }
     dl->PushClipRect(a, b, true);
+    if (on && TH->glow) { dl->AddPolyline(pts, 121, col::alpha(cc, 30), ImDrawFlags_None, S(8)); dl->AddPolyline(pts, 121, col::alpha(cc, 60), ImDrawFlags_None, S(4.5f)); }
     dl->AddPolyline(pts, 121, cc, ImDrawFlags_None, S(2.2f));
     if (on && !app.params.compMultiband && app.Status() == ENGINE_ACTIVE && app.compLevel > -60) {
         float in = app.compLevel, out = (float)dyn::gainComputer(in, c.threshold, c.ratio, c.knee);
-        dl->AddCircleFilled(ImVec2(X(in), Y(out)), S(5), col::text, 16);
+        GlowDot(dl, ImVec2(X(in), Y(out)), S(4.5f), TH->lcdText);
         dl->AddCircle(ImVec2(X(in), Y(out)), S(8), (col::comp & 0x00FFFFFF) | 0x80000000, 16, S(1.5f));
     }
     dl->PopClipRect();
-    TextAt(dl, U->fSmall, ImVec2(a.x + S(6), a.y + S(4)), col::faint, "sortie");
-    ImVec2 ts = TextSize(U->fSmall, "entrée");
-    TextAt(dl, U->fSmall, ImVec2(b.x - ts.x - S(6), b.y - ts.y - S(4)), col::faint, "entrée");
+    Label(dl, U->fSmall, ImVec2(a.x + S(7), a.y + S(11)), TH->lcdDim, "sortie", 0);
+    Label(dl, U->fSmall, ImVec2(b.x - S(7), b.y - S(11)), TH->lcdDim, "entrée", 2);
 }
 
 static void GrHistory(App& app, ImVec2 p, ImVec2 size) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), col::well, S(6));
+    Screen(dl, p, ImVec2(p.x + size.x, p.y + size.y));
     const int n = (int)app.grHistory.size();
     const float range = 18.f;
     for (int k = 1; k < n; ++k) {
@@ -565,7 +742,7 @@ static void GrHistory(App& app, ImVec2 p, ImVec2 size) {
         float y = p.y + d / range * size.y;
         dl->AddLine(ImVec2(p.x, y), ImVec2(p.x + size.x, y), col::grid);
         char b[8]; snprintf(b, sizeof(b), "-%d", d);
-        TextAt(dl, U->fSmall, ImVec2(p.x + S(4), y - U->fSmall->FontSize - S(1)), col::faint, b);
+        TextAt(dl, U->fSmall, ImVec2(p.x + S(5), y - U->fSmall->FontSize - S(1)), TH->lcdDim, b);
     }
 }
 
@@ -573,20 +750,36 @@ static void GrHistory(App& app, ImVec2 p, ImVec2 size) {
 static char g_saveName[64] = "";
 static bool g_openSaveAs = false, g_openUninstall = false, g_openAbout = false, g_openDiag = false;
 
+static const float kTopH = 72.f;
+
 static void TopBar(App& app, ImVec2 p, float w) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const float h = S(64);
-    // logo
-    DrawLogo(dl, ImVec2(p.x + S(18), p.y + S(20)), S(24));
-    TextAt(dl, U->fTitle, ImVec2(p.x + S(56), p.y + S(17)), col::accent, "Dynamo");
-    TextAt(dl, U->fSmall, ImVec2(p.x + S(58), p.y + S(44)), col::faint, "version " DYN_VERSION_SHORT);
+    const float h = S(kTopH);
 
-    // presets
-    float x = p.x + S(190);
-    const float comboH = S(38);
-    float presetW = std::max(S(220), w * 0.26f);
+    // ---- logo : nom en serif italique + etoile a quatre branches + code produit (comme Kinetik / J-Slice)
+    {
+        ImFont* lf = U->fTitle;
+        const char* name = "Dynamo";
+        ImVec2 ts = TextSize(lf, name);
+        ImVec2 tp(p.x + S(18), p.y + (h - ts.y) / 2 - S(2));
+        const ImU32 star = TH->halftone ? TH->btnEdge : (TH->knob == KS_ARC ? TH->accent : TH->accent);
+        if (TH->glow) {
+            GlowText(dl, lf, tp, IM_COL32(230, 234, 255, 255), TH->accent, name);
+            dl->AddCircleFilled(ImVec2(tp.x + ts.x + S(16), tp.y + S(14)), S(13), col::alpha(star, 30), 24);
+        } else TextAt(dl, lf, tp, TH->text, name);
+        DrawSparkle(dl, ImVec2(tp.x + ts.x + S(16), tp.y + S(14)), S(8.5f), star);
+        const float sx = tp.x + ts.x + S(34);
+        char ver[32]; snprintf(ver, sizeof(ver), "DYN-%s", DYN_VERSION_SHORT);
+        Label(dl, U->fLabel, ImVec2(sx, p.y + h / 2 - S(8)), TH->text, ver, 0);
+        if (w > S(1240)) Label(dl, U->fSmall, ImVec2(sx, p.y + h / 2 + S(9)), TH->dim, "Compresseur · Égaliseur", 0);
+    }
+
+    // ---- presets
+    float x = p.x + S(w > S(1240) ? 330 : 270);
+    const float comboH = S(34);
+    float presetW = std::max(S(170), std::min(S(260), w * 0.18f));
     ImGui::SetCursorScreenPos(ImVec2(x, p.y + (h - comboH) / 2));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(S(14), (comboH - ImGui::GetFontSize()) / 2));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(S(12), (comboH - ImGui::GetFontSize()) / 2));
     ImGui::SetNextItemWidth(presetW);
     std::string label = app.CurrentPresetLabel();
     if (ImGui::BeginCombo("##preset", label.c_str(), ImGuiComboFlags_HeightLarge)) {
@@ -605,17 +798,14 @@ static void TopBar(App& app, ImVec2 p, float w) {
     x += presetW + S(8);
 
     auto smallBtn = [&](const char* t, bool enabled, const char* tip) {
-        ImGui::SetCursorScreenPos(ImVec2(x, p.y + (h - S(32)) / 2));
-        ImGui::BeginDisabled(!enabled);
-        bool r = ImGui::Button(t, ImVec2(0, S(32)));
-        ImGui::EndDisabled();
-        if (tip) Tip(tip);
+        ImGui::SetCursorScreenPos(ImVec2(x, p.y + (h - comboH) / 2));
+        bool r = KButton(t, ImVec2(0, comboH), false, enabled, tip);
         x = ImGui::GetItemRectMax().x + S(6);
         return r;
     };
     bool isUser = app.currentPreset >= 0 && !app.presets[app.currentPreset].builtin;
     if (smallBtn("Enregistrer", app.modified && app.currentPreset >= 0, "Enregistrer les modifications dans ce preset (Ctrl+S)")) app.SaveCurrentPreset();
-    if (smallBtn("Enregistrer sous…", true, "Créer un nouveau preset à partir des réglages actuels")) {
+    if (smallBtn("Nouveau…", true, "Créer un nouveau preset à partir des réglages actuels")) {
         snprintf(g_saveName, sizeof(g_saveName), "%s", app.currentPreset >= 0 ? app.presets[app.currentPreset].name.c_str() : "Mon preset");
         g_openSaveAs = true;
     }
@@ -623,13 +813,14 @@ static void TopBar(App& app, ImVec2 p, float w) {
         app.DeletePreset(app.currentPreset);
     }
 
-    // sortie audio
+    // ---- a droite : sortie audio, skin, contournement, reglages
     const float right = p.x + w - S(16);
-    const float iconW = S(40);
-    float devW = std::max(S(240), std::min(S(380), right - iconW * 2 - S(24) - x - S(16)));
-    float dx = right - iconW * 2 - S(16) - devW;
+    const float iconW = S(34);
+    const float skinW = S(92);
+    float devW = std::max(S(170), std::min(S(320), right - iconW * 2 - skinW - S(24) - x - S(14)));
+    float dx = right - iconW * 2 - skinW - S(16) - devW;
     ImGui::SetCursorScreenPos(ImVec2(dx, p.y + (h - comboH) / 2));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(S(34), (comboH - ImGui::GetFontSize()) / 2));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(S(28), (comboH - ImGui::GetFontSize()) / 2));
     ImGui::SetNextItemWidth(devW);
     std::string devLabel = app.devices.empty() ? "Aucune sortie audio" : sys::ToUtf8(app.devices[app.selectedDevice].name);
     if (app.RoutingActive()) devLabel = app.DeviceName(app.settings.routeTarget);
@@ -656,15 +847,35 @@ static void TopBar(App& app, ImVec2 p, float w) {
         ImGui::EndCombo();
     }
     ImGui::PopStyleVar();
-    // pastille d'etat dans la liste
+    // LED d'etat dans la liste
     {
-        ImU32 c = col::faint;
-        if (app.RoutingActive() || (!app.devices.empty() && app.devices[app.selectedDevice].installed)) c = app.Status() == ENGINE_ACTIVE ? col::ok : col::warn;
-        dl->AddCircleFilled(ImVec2(comboPos.x + S(16), comboPos.y + comboH / 2), S(5), c, 16);
+        ImU32 c = TH->faint;
+        if (app.RoutingActive() || (!app.devices.empty() && app.devices[app.selectedDevice].installed)) c = app.Status() == ENGINE_ACTIVE ? TH->ok : TH->warn;
+        GlowDot(dl, ImVec2(comboPos.x + S(14), comboPos.y + comboH / 2), S(4), c);
+    }
+
+    // skin (comme le bouton SKIN / SIZE de Kinetik)
+    {
+        ImVec2 sp(right - iconW * 2 - S(12) - skinW, p.y + (h - comboH) / 2);
+        ImGui::SetCursorScreenPos(sp);
+        bool clicked = ImGui::InvisibleButton("##skin", ImVec2(skinW, comboH));
+        bool hov = ImGui::IsItemHovered();
+        Tip("Apparence (clic : skin suivant, clic droit : liste)");
+        dl->AddRectFilled(sp, ImVec2(sp.x + skinW, sp.y + comboH), hov ? col::mix(TH->btnFill, TH->text, 0.07f) : TH->btnFill, S(TH->radius));
+        dl->AddRect(sp, ImVec2(sp.x + skinW, sp.y + comboH), hov ? TH->dim : TH->btnEdge, S(TH->radius), 0, TH->edgeWidth);
+        Label(dl, U->fSmall, ImVec2(sp.x + skinW / 2, sp.y + S(10)), TH->dim, "Skin");
+        Label(dl, U->fLabel, ImVec2(sp.x + skinW / 2, sp.y + comboH - S(11)), TH->text, TH->name);
+        if (clicked) { app.settings.skin = (U->skin + 1) % kNumSkins; UiSetSkin(*U, app.settings.skin); app.SaveSettings(); }
+        if (hov && ImGui::IsMouseClicked(1)) ImGui::OpenPopup("##skins");
+        if (ImGui::BeginPopup("##skins")) {
+            for (int i = 0; i < kNumSkins; ++i)
+                if (ImGui::MenuItem(kSkins[i].name, nullptr, i == U->skin)) { app.settings.skin = i; UiSetSkin(*U, i); app.SaveSettings(); }
+            ImGui::EndPopup();
+        }
     }
 
     // contournement
-    ImGui::SetCursorScreenPos(ImVec2(right - iconW * 2 - S(8), p.y + (h - iconW) / 2));
+    ImGui::SetCursorScreenPos(ImVec2(right - iconW * 2 - S(6), p.y + (h - iconW) / 2));
     bool on = !app.params.bypass;
     if (IconButton("##power", ImVec2(iconW, iconW), on, DrawPower, on ? "Traitement actif — cliquer pour contourner (son d'origine)" : "Contourné — cliquer pour réactiver")) {
         app.params.bypass = !app.params.bypass;
@@ -676,6 +887,11 @@ static void TopBar(App& app, ImVec2 p, float w) {
 
     if (ImGui::BeginPopup("##settings")) {
         ImGui::PushFont(U->fSmall); ImGui::TextDisabled("GÉNÉRAL"); ImGui::PopFont();
+        if (ImGui::BeginMenu("Skin")) {
+            for (int i = 0; i < kNumSkins; ++i)
+                if (ImGui::MenuItem(kSkins[i].name, nullptr, i == U->skin)) { app.settings.skin = i; UiSetSkin(*U, i); app.SaveSettings(); }
+            ImGui::EndMenu();
+        }
         if (ImGui::Checkbox("Lancer Dynamo au démarrage de Windows", &app.settings.startWithWindows)) { sys::SetAutostart(app.settings.startWithWindows); app.SaveSettings(); }
         if (ImGui::Checkbox("Fermer la fenêtre = réduire près de l'horloge", &app.settings.closeToTray)) app.SaveSettings();
         if (ImGui::Checkbox("Afficher l'analyseur de spectre", &app.settings.showSpectrum)) app.SaveSettings();
@@ -727,7 +943,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
 static void StatusBar(App& app, ImVec2 p, float w) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float h = S(38);
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), col::panel, S(8));
+    Screen(dl, p, ImVec2(p.x + w, p.y + h));
     const sys::Device* d = app.devices.empty() ? nullptr : &app.devices[app.selectedDevice];
     ImU32 dot = col::faint;
     std::string msg;
@@ -790,23 +1006,18 @@ static void StatusBar(App& app, ImVec2 p, float w) {
     if (!app.lastError.empty()) { msg = sys::ToUtf8(app.lastError); dot = col::err; }
     else if (!app.lastInfo.empty() && app.time - app.infoTime < 8.0) { msg = app.lastInfo; if (action == 7) action = 0; }
 
-    dl->AddCircleFilled(ImVec2(p.x + S(18), p.y + h / 2), S(5), dot, 16);
+    GlowDot(dl, ImVec2(p.x + S(18), p.y + h / 2), S(4.5f), dot);
     float btnW = 0;
     const char* btn = action == 8 ? "Redémarrer maintenant" : action == 7 ? "Tout supprimer" : action == 5 ? "Activer" : action == 6 ? "Rediriger vers Dynamo" : action == 1 ? "Installer sur ce périphérique" : action == 2 ? "Définir par défaut" : action == 3 ? "Redémarrer l'audio" : action == 4 ? "Diagnostic et réparation" : nullptr;
     if (!app.lastError.empty()) btn = "OK";
-    if (btn) btnW = ImGui::CalcTextSize(btn).x + S(28);
+    if (btn) btnW = LabelWidth(U->fLabel, btn) + S(28);
     dl->PushClipRect(p, ImVec2(p.x + w - btnW - S(16), p.y + h), true);
-    TextAt(dl, U->fBody, ImVec2(p.x + S(32), p.y + (h - U->fBody->FontSize) / 2), col::text, msg.c_str());
+    TextAt(dl, U->fBody, ImVec2(p.x + S(32), p.y + (h - U->fBody->FontSize) / 2), TH->lcdText, msg.c_str());
     dl->PopClipRect();
     if (btn) {
-        ImGui::SetCursorScreenPos(ImVec2(p.x + w - btnW - S(5), p.y + S(4)));
-        bool primary = (action == 1 || action == 4 || action == 5 || action == 6 || action == 7) && app.lastError.empty();
-        if (primary) {
-            ImGui::PushStyleColor(ImGuiCol_Button, V4(col::accent));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.98f, 0.30f, 0.46f, 1));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.80f, 0.18f, 0.32f, 1));
-        }
-        if (ImGui::Button(btn, ImVec2(btnW, h - S(8)))) {
+        ImGui::SetCursorScreenPos(ImVec2(p.x + w - btnW - S(5), p.y + S(5)));
+        bool primary = (action == 1 || action == 4 || action == 5 || action == 6 || action == 7 || action == 8) && app.lastError.empty();
+        if (KButton(btn, ImVec2(btnW, h - S(10)), primary)) {
             if (!app.lastError.empty()) app.lastError.clear();
             else if (action == 7) app.CleanupLegacy();
             else if (action == 8) U->requestRestart = true;
@@ -817,7 +1028,7 @@ static void StatusBar(App& app, ImVec2 p, float w) {
             else if (action == 3) app.RestartAudio();
             else if (action == 4) { app.RunDiagnostic(); g_openDiag = true; }
         }
-        if (primary) { ImGui::PopStyleColor(3); Tip("Une autorisation administrateur sera demandée.\nLe son sera coupé une seconde pendant le redémarrage de l'audio."); }
+        if (action == 1 || action == 4) Tip("Une autorisation administrateur sera demandée.\nLe son sera coupé une seconde pendant le redémarrage de l'audio.");
     }
 }
 
@@ -850,12 +1061,9 @@ static void EqPanel(App& app, ImVec2 pos, ImVec2 size) {
     // boutons a droite
     {
         const char* t = "Remettre à plat";
-        float bw = ImGui::CalcTextSize(t).x + S(20);
-        ImGui::SetCursorScreenPos(ImVec2(wp.x + size.x - pad - bw, wp.y + S(8)));
-        ImGui::PushFont(U->fSmall);
-        if (ImGui::Button(t, ImVec2(bw, S(26)))) { for (int i = 0; i < DYN_EQ_BANDS; ++i) ResetBand(P, i); changed = true; }
-        ImGui::PopFont();
-        Tip("Toutes les bandes à 0 dB (fréquences d'origine)");
+        float bw = LabelWidth(U->fLabel, t) + S(24);
+        ImGui::SetCursorScreenPos(ImVec2(wp.x + size.x - pad - bw, wp.y + S(9)));
+        if (KButton(t, ImVec2(bw, S(24)), false, true, "Toutes les bandes à 0 dB (fréquences d'origine)")) { for (int i = 0; i < DYN_EQ_BANDS; ++i) ResetBand(P, i); changed = true; }
     }
 
     const float top = wp.y + S(46);
@@ -865,7 +1073,7 @@ static void EqPanel(App& app, ImVec2 pos, ImVec2 size) {
     // vumetres d'entree + gain
     {
         ImVec2 mp(wp.x + pad, top);
-        TextCentered(dl, U->fSmall, ImVec2(mp.x + meterPanelW / 2 - S(6), mp.y + S(6)), col::dim, "ENTRÉE");
+        Label(dl, U->fSmall, ImVec2(mp.x + meterPanelW / 2 - S(6), mp.y + S(7)), TH->halftone ? TH->text : TH->dim, "Entrée");
         float mh = graphH - S(98);
         ImVec2 m0(mp.x + S(22), mp.y + S(20));
         Meter(m0, ImVec2(S(10), mh), app.inLevel[0], app.inHold[0]);
@@ -881,7 +1089,7 @@ static void EqPanel(App& app, ImVec2 pos, ImVec2 size) {
     // vumetres de sortie + gain
     {
         ImVec2 mp(wp.x + size.x - pad - meterPanelW, top);
-        TextCentered(dl, U->fSmall, ImVec2(mp.x + meterPanelW / 2 + S(6), mp.y + S(6)), col::dim, "SORTIE");
+        Label(dl, U->fSmall, ImVec2(mp.x + meterPanelW / 2 + S(6), mp.y + S(7)), TH->halftone ? TH->text : TH->dim, "Sortie");
         float mh = graphH - S(98);
         ImVec2 m0(mp.x + S(26), mp.y + S(20));
         Meter(m0, ImVec2(S(10), mh), app.outLevel[0], app.outHold[0]);
@@ -906,12 +1114,14 @@ static void EqPanel(App& app, ImVec2 pos, ImVec2 size) {
             bool hov = ImGui::IsItemHovered();
             ImGui::PopID();
             bool en = P.eq[i].enabled && P.eqEnabled;
-            ImVec2 cc(c0.x + chip / 2, c0.y + chip / 2);
-            if (i == sel) dl->AddRectFilled(c0, ImVec2(c0.x + chip, c0.y + chip), col::band(i, 60), S(6));
-            else if (hov) dl->AddRectFilled(c0, ImVec2(c0.x + chip, c0.y + chip), IM_COL32(255, 255, 255, 14), S(6));
-            if (en) dl->AddCircleFilled(cc, S(8), col::band(i), 20); else dl->AddCircle(cc, S(8), col::band(i, 150), 20, S(1.5f));
+            ImVec2 c1(c0.x + chip, c0.y + chip);
+            const bool isSel = i == sel;
+            dl->AddRectFilled(c0, c1, isSel ? TH->selFill : (hov ? col::mix(TH->btnFill, TH->text, 0.07f) : TH->btnFill), S(TH->radius));
+            if (!isSel) dl->AddRect(c0, c1, hov ? TH->dim : TH->btnEdge, S(TH->radius), 0, TH->edgeWidth);
             char n[4]; snprintf(n, sizeof(n), "%d", i + 1);
-            TextCentered(dl, U->fSmall, cc, en ? IM_COL32(20, 20, 22, 255) : col::band(i, 200), n);
+            TextCentered(dl, U->fValue, ImVec2(c0.x + chip / 2 - S(2), c0.y + chip / 2 + S(1)), isSel ? TH->selText : (en ? TH->text : TH->faint), n);
+            ImVec2 led(c1.x - S(5), c0.y + S(5));
+            if (en) GlowDot(dl, led, S(2.2f), col::band(i)); else dl->AddCircle(led, S(2.2f), col::alpha(isSel ? TH->selText : TH->dim, 120), 10);
         }
         DynEqBand& b = P.eq[sel];
         float cx = e0.x;
@@ -951,14 +1161,12 @@ static void EqPanel(App& app, ImVec2 pos, ImVec2 size) {
         if (Knob(b.type == EQ_LOWSHELF || b.type == EQ_HIGHSHELF ? "Pente (Q)" : "Largeur (Q)", &b.q, 0.1f, 18, 0.707f, FmtQ, KNOB_LOG, bc, 78, qOn,
                  "Q faible = large, Q élevé = étroit")) changed = true;
         ImGui::SetCursorScreenPos(ImVec2(kx + S(240), ky + S(22)));
-        ImGui::PushFont(U->fSmall);
-        if (ImGui::Button("Réinit. bande", ImVec2(0, S(26)))) { ResetBand(P, sel); changed = true; }
-        ImGui::PopFont();
+        if (KButton("Réinit. bande", ImVec2(0, S(26)))) { ResetBand(P, sel); changed = true; }
         // aide
         const char* help = "Glisser un point : fréquence/gain · Molette : largeur · Double-clic : activer · Clic droit : type";
         ImVec2 hs = TextSize(U->fSmall, help);
         float hx = gpos.x + gsize.x - hs.x;
-        if (hx > kx + S(340)) TextAt(dl, U->fSmall, ImVec2(hx, ey + editorH - hs.y - S(12)), col::faint, help);
+        if (hx > kx + S(370)) TextAt(dl, U->fSmall, ImVec2(hx, ey + editorH - hs.y - S(12)), TH->faint, help);
     }
     EndPanel();
     if (changed) app.ParamsChanged();
@@ -1000,13 +1208,12 @@ static void CompressorPanel(App& app, ImVec2 pos, ImVec2 size) {
         float mx = gx + graphSz + S(12);
         if (!P.compMultiband) {
             GrMeter(ImVec2(mx, top), ImVec2(grW, graphSz), app.gr[0], col::comp);
-            char b[16]; snprintf(b, sizeof(b), "%.1f", app.gr[0]);
-            TextCentered(dl, U->fSmall, ImVec2(mx + grW / 2, top + graphSz + S(10)), col::dim, "GR");
+            Label(dl, U->fSmall, ImVec2(mx + grW / 2, top + graphSz + S(10)), TH->dim, "GR");
         } else {
             const char* bn[3] = { "G", "M", "A" };
             for (int i = 0; i < 3; ++i) {
                 GrMeter(ImVec2(mx + i * (grW + S(6)), top), ImVec2(grW, graphSz), app.gr[i + 1], col::comp);
-                TextCentered(dl, U->fSmall, ImVec2(mx + i * (grW + S(6)) + grW / 2, top + graphSz + S(10)), col::dim, bn[i]);
+                Label(dl, U->fSmall, ImVec2(mx + i * (grW + S(6)) + grW / 2, top + graphSz + S(10)), TH->dim, bn[i]);
             }
         }
     }
@@ -1032,19 +1239,27 @@ static void CompressorPanel(App& app, ImVec2 pos, ImVec2 size) {
             bool hov = ImGui::IsItemHovered();
             ImGui::PopID();
             bool isSel = sb == i + 1;
-            dl->AddRectFilled(t0, ImVec2(t0.x + tsz.x, t0.y + tsz.y), isSel ? IM_COL32(46, 196, 182, 45) : (hov ? IM_COL32(255, 255, 255, 12) : col::well), S(6));
-            TextAt(dl, U->fBody, ImVec2(t0.x + S(34), t0.y + (tsz.y - U->fBody->FontSize) / 2), isSel ? col::text : col::dim, names[i]);
-            // mini vumetre GR horizontal
+            ImVec2 t1(t0.x + tsz.x, t0.y + tsz.y);
+            dl->AddRectFilled(t0, t1, isSel ? TH->selFill : (hov ? col::mix(TH->btnFill, TH->text, 0.07f) : TH->btnFill), S(TH->radius));
+            if (!isSel) dl->AddRect(t0, t1, hov ? TH->dim : TH->btnEdge, S(TH->radius), 0, TH->edgeWidth);
+            Label(dl, U->fLabel, ImVec2(t0.x + S(32), t0.y + tsz.y / 2 + S(0.5f)), isSel ? TH->selText : TH->btnText, names[i], 0);
+            // mini vumetre GR (LED)
             float g = std::min(1.f, app.gr[i + 1] / 18.f);
-            dl->AddRectFilled(ImVec2(t0.x + S(92), t0.y + S(12)), ImVec2(t0.x + S(120), t0.y + S(18)), col::panel, S(2));
-            if (g > 0.01f) dl->AddRectFilled(ImVec2(t0.x + S(92), t0.y + S(12)), ImVec2(t0.x + S(92) + g * S(28), t0.y + S(18)), col::comp, S(2));
-            ImGui::SetCursorScreenPos(ImVec2(t0.x + S(8), t0.y + S(7)));
+            for (int k = 0; k < 6; ++k) {
+                ImVec2 a(t0.x + S(92) + k * S(5), t0.y + S(12));
+                bool lit = (k + 0.5f) / 6.f <= g;
+                dl->AddRectFilled(a, ImVec2(a.x + S(3.5f), a.y + S(6)), lit ? (isSel ? TH->selText : col::comp) : (isSel ? col::alpha(TH->selText, 50) : TH->ledOff), S(0.8f));
+            }
+            // LED d'activation de la bande (clic = activer / desactiver)
+            ImVec2 lc(t0.x + S(16), t0.y + tsz.y / 2);
+            ImGui::SetCursorScreenPos(ImVec2(lc.x - S(9), lc.y - S(9)));
             ImGui::PushID(100 + i);
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-            bool e = P.comp[i + 1].enabled != 0;
-            if (ImGui::Checkbox("##en", &e)) { P.comp[i + 1].enabled = e; changed = true; }
-            ImGui::PopStyleVar();
+            if (ImGui::InvisibleButton("##en", ImVec2(S(18), S(18)))) { P.comp[i + 1].enabled = !P.comp[i + 1].enabled; changed = true; }
+            Tip("Activer / désactiver la compression de cette bande");
             ImGui::PopID();
+            const ImU32 ledC = isSel ? TH->selText : col::comp;
+            if (P.comp[i + 1].enabled) GlowDot(dl, lc, S(4), ledC);
+            else dl->AddCircle(lc, S(4), col::alpha(ledC, 140), 12, S(1.2f));
             tx += tsz.x + S(6);
         }
         band = sb;
@@ -1073,9 +1288,9 @@ static void CompressorPanel(App& app, ImVec2 pos, ImVec2 size) {
     {
         ImGui::SetCursorScreenPos(ImVec2(kx, ky + S(20)));
         if (Toggle("automk", &c.autoMakeup, col::comp, "Compense automatiquement la perte de volume")) changed = true;
-        TextAt(dl, U->fSmall, ImVec2(kx + S(40), ky + S(21)), col::dim, "Gain auto");
+        Label(dl, U->fSmall, ImVec2(kx + S(42), ky + S(29)), TH->text, "Gain auto", 0);
         char b[32]; snprintf(b, sizeof(b), "+%.1f dB", c.autoMakeup ? (float)dyn::autoMakeupDb(c) : 0.f);
-        TextAt(dl, U->fSmall, ImVec2(kx, ky + S(46)), c.autoMakeup ? col::comp : col::faint, b);
+        TextAt(dl, U->fValue, ImVec2(kx, ky + S(44)), c.autoMakeup ? col::comp : TH->faint, b);
         kx += S(110);
     }
     knobAt("Mélange", &P.mix, 0, 1, 1, FmtPct, KNOB_LIN, P.compEnabled != 0, "Compression parallèle : 100 % = tout compressé,\nmoins = on mélange le son d'origine (plus de naturel)");
@@ -1112,12 +1327,17 @@ static void LimiterPanel(App& app, ImVec2 pos, ImVec2 size) {
     float mx = wp.x + pad + S(86);
     float mh = bottom - top - S(22);
     GrMeter(ImVec2(mx, top), ImVec2(S(14), mh), app.grLim, col::lim, 12.f);
-    TextCentered(dl, U->fSmall, ImVec2(mx + S(7), top + mh + S(12)), col::dim, "GR");
+    Label(dl, U->fSmall, ImVec2(mx + S(7), top + mh + S(12)), TH->dim, "GR");
     // historique de reduction globale
     float hx = mx + S(28);
     float hw = wp.x + size.x - pad - hx;
     if (hw > S(60)) {
-        TextAt(dl, U->fSmall, ImVec2(hx, top - S(2)), col::dim, "Réduction de gain (compresseur)");
+        char gb[24]; float gnow = app.params.compMultiband ? std::max(app.gr[1], std::max(app.gr[2], app.gr[3])) : app.gr[0];
+        if (gnow < 0.05f) snprintf(gb, sizeof(gb), "0.0 dB"); else snprintf(gb, sizeof(gb), "-%.1f dB", gnow);
+        ImVec2 gs = TextSize(U->fValue, gb);
+        TextAt(dl, U->fValue, ImVec2(hx + hw - gs.x, top + S(6) - gs.y / 2), TH->text, gb);
+        const char* gl = LabelWidth(U->fSmall, "Réduction de gain · compresseur") + gs.x + S(10) < hw ? "Réduction de gain · compresseur" : "Réduction de gain";
+        if (LabelWidth(U->fSmall, gl) + gs.x + S(10) < hw) Label(dl, U->fSmall, ImVec2(hx, top + S(6)), TH->halftone ? TH->text : TH->dim, gl, 0);
         GrHistory(app, ImVec2(hx, top + S(18)), ImVec2(hw, mh - S(18)));
     }
     EndPanel();
@@ -1142,11 +1362,11 @@ static void Modals(App& app) {
         for (auto& p : app.presets) if (p.name == g_saveName) exists = true;
         if (exists) { ImGui::PushFont(U->fSmall); ImGui::TextColored(V4(col::warn), "Un preset porte déjà ce nom : il sera remplacé."); ImGui::PopFont(); }
         ImGui::Spacing();
-        if (ImGui::Button("Enregistrer", ImVec2(S(140), 0)) || enter) {
+        if (KButton("Enregistrer", ImVec2(S(140), 0), true) || enter) {
             if (g_saveName[0]) { app.SavePresetAs(g_saveName); ImGui::CloseCurrentPopup(); }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Annuler", ImVec2(S(140), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        if (KButton("Annuler", ImVec2(S(140), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 
@@ -1155,11 +1375,9 @@ static void Modals(App& app) {
         ImGui::Text("Retirer le moteur de tous les périphériques, restaurer les effets\nd'origine de Windows et supprimer les fichiers installés ?");
         ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Vos presets personnels sont conservés dans %%APPDATA%%\\Dynamo."); ImGui::PopFont();
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Button, V4(col::accent));
-        if (ImGui::Button("Désinstaller", ImVec2(S(140), 0))) { app.UninstallEverything(); ImGui::CloseCurrentPopup(); }
-        ImGui::PopStyleColor();
+        if (KButton("Désinstaller", ImVec2(S(140), 0), true)) { app.UninstallEverything(); ImGui::CloseCurrentPopup(); }
         ImGui::SameLine();
-        if (ImGui::Button("Annuler", ImVec2(S(140), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        if (KButton("Annuler", ImVec2(S(140), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 
@@ -1186,20 +1404,26 @@ static void Modals(App& app) {
         ImGui::TextDisabled("« Tout réparer » ferme FxSound, définit la sortie par défaut, réactive les améliorations audio,\npuis essaie automatiquement les 4 modes de branchement jusqu'à ce que le moteur tourne\n(une seule autorisation administrateur, jusqu'à 40 s, le son peut se couper quelques fois).");
         ImGui::PopFont();
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Button, V4(col::accent));
-        if (ImGui::Button("Tout réparer", ImVec2(S(170), 0))) app.RepairAll();
-        ImGui::PopStyleColor();
+        if (KButton("Tout réparer", ImVec2(S(170), 0), true)) app.RepairAll();
         ImGui::SameLine();
-        if (ImGui::Button("Copier le rapport", ImVec2(S(170), 0))) ImGui::SetClipboardText(app.diagReport.c_str());
+        if (KButton("Copier le rapport", ImVec2(S(170), 0))) ImGui::SetClipboardText(app.diagReport.c_str());
         ImGui::SameLine();
-        if (ImGui::Button("Fermer", ImVec2(S(120), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        if (KButton("Fermer", ImVec2(S(120), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
         if (!app.lastError.empty()) { ImGui::Spacing(); ImGui::TextColored(V4(col::err), "%s", sys::ToUtf8(app.lastError).c_str()); }
         ImGui::EndPopup();
     }
 
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("À propos de Dynamo", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::PushFont(U->fTitle); ImGui::TextColored(V4(col::accent), "Dynamo " DYN_VERSION_STR); ImGui::PopFont();
+        {
+            ImDrawList* adl = ImGui::GetWindowDrawList();
+            ImVec2 ap = ImGui::GetCursorScreenPos();
+            ImVec2 ts = TextSize(U->fTitle, "Dynamo");
+            GlowText(adl, U->fTitle, ap, TH->text, TH->accent, "Dynamo");
+            DrawSparkle(adl, ImVec2(ap.x + ts.x + S(16), ap.y + S(14)), S(8.5f), TH->halftone ? TH->btnEdge : TH->accent);
+            Label(adl, U->fLabel, ImVec2(ap.x + ts.x + S(34), ap.y + ts.y / 2), TH->text, "Version " DYN_VERSION_STR, 0);
+            ImGui::Dummy(ImVec2(ts.x + S(160), ts.y));
+        }
         {
             const char* us = "";
             switch (app.updater.state) {
@@ -1222,7 +1446,7 @@ static void Modals(App& app) {
                             "clic droit sur un bouton = saisir une valeur · Maj = réglage fin");
         ImGui::PopFont();
         ImGui::Spacing();
-        if (ImGui::Button("Fermer", ImVec2(S(120), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        if (KButton("Fermer", ImVec2(S(120), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 }
@@ -1231,18 +1455,31 @@ static void Modals(App& app) {
 void UiDraw(App& app, UiContext& ui) {
     U = &ui;
     ImGuiIO& io = ImGui::GetIO();
+    if (TH != &kSkins[ui.skin]) col::Load(kSkins[ui.skin]);
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, V4(TH->bg));
     ImGui::Begin("##root", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings);
-    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
     ImGui::PushFont(ui.fBody);
+    if (TH->halftone) {
+        // trame demi-teinte (skin RISO)
+        ImDrawList* bdl = ImGui::GetWindowDrawList();
+        const float stp = S(6), dsz = S(1.3f);
+        const ImU32 dc = col::alpha(TH->dots, 150);
+        for (float yy = stp * 0.5f; yy < io.DisplaySize.y; yy += stp)
+            for (float xx = ((int)(yy / stp) & 1) ? stp : stp * 0.5f; xx < io.DisplaySize.x; xx += stp)
+                bdl->AddRectFilled(ImVec2(xx, yy), ImVec2(xx + dsz, yy + dsz), dc);
+    }
 
     const float W = io.DisplaySize.x, H = io.DisplaySize.y;
     const float m = S(14);
     TopBar(app, ImVec2(0, 0), W);
-    float y = S(64);
+    float y = S(kTopH);
     StatusBar(app, ImVec2(m, y), W - 2 * m);
     y += S(38) + S(10);
 

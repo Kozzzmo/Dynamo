@@ -40,3 +40,6 @@ CXX=x86_64-w64-mingw32-g++-posix ./build.sh
 
 Interface : [Dear ImGui](https://github.com/ocornut/imgui) — licence MIT
 (voir `third_party/imgui/LICENSE.txt`).
+
+Polices embarquées, licence SIL Open Font License 1.1 (voir `res/fonts/OFL-*.txt`) :
+Instrument Serif, IBM Plex Mono, Archivo Black.

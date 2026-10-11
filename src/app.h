@@ -29,6 +29,7 @@ struct Settings {
     int selectedCompBand = 1;
     // routage interne
     bool autoUpdate = true;
+    int skin = 0;              // 0 = NEON
     bool routingOn = false;
     std::string routeSource;   // id MMDevice de la sortie capturee (ex. Analog (3+4))
     std::string routeTarget;   // id MMDevice de la sortie reelle (ex. Haut-parleurs RME)

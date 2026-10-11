@@ -222,6 +222,7 @@ void App::LoadSettings() {
         else if (k == "showSpectrum") settings.showSpectrum = v == "1";
         else if (k == "setAsDefault") settings.setAsDefault = v == "1";
         else if (k == "lastPreset") settings.lastPreset = v;
+        else if (k == "skin") settings.skin = std::max(0, atoi(v.c_str()));
         else if (k == "autoUpdate") settings.autoUpdate = v == "1";
         else if (k == "routingOn") settings.routingOn = v == "1";
         else if (k == "routeSource") settings.routeSource = v;
@@ -238,6 +239,7 @@ void App::SaveSettings() {
     s += "setAsDefault=" + std::string(settings.setAsDefault ? "1" : "0") + "\n";
     s += "lastPreset=" + settings.lastPreset + "\n";
     s += "selectedBand=" + std::to_string(settings.selectedBand) + "\n";
+    s += "skin=" + std::to_string(settings.skin) + "\n";
     s += "autoUpdate=" + std::string(settings.autoUpdate ? "1" : "0") + "\n";
     s += "routingOn=" + std::string(settings.routingOn ? "1" : "0") + "\n";
     s += "routeSource=" + settings.routeSource + "\n";

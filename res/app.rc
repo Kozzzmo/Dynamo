@@ -3,6 +3,11 @@
 1 ICON "dynamo.ico"
 1 RT_MANIFEST "app.manifest"
 APODLL RCDATA "../build/DynamoAPO.dll"
+FONT_SERIF RCDATA "fonts/InstrumentSerif-Regular.ttf"
+FONT_SERIF_I RCDATA "fonts/InstrumentSerif-Italic.ttf"
+FONT_MONO RCDATA "fonts/IBMPlexMono-Medium.ttf"
+FONT_MONO_SB RCDATA "fonts/IBMPlexMono-SemiBold.ttf"
+FONT_BLACK RCDATA "fonts/ArchivoBlack-Regular.ttf"
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION DYN_VERSION_RC
 PRODUCTVERSION DYN_VERSION_RC

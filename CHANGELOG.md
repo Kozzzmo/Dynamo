@@ -1,5 +1,11 @@
 # Historique des versions
 
+## 2.4.0
+- Nouveau design dans la famille des plugins Kinetik / J-Slice : logo serif italique avec l'étoile à quatre branches,
+  chiffres en Instrument Serif, étiquettes en IBM Plex Mono, potentiomètres à anneau de points, vumètres à LED.
+- Quatre skins au choix (bouton SKIN en haut à droite, ou Réglages → Skin) : NEON (par défaut), MIDNIGHT, RISO, CLASSIC.
+- Polices embarquées dans l'exe (SIL Open Font License), nouvelle icône.
+
 ## 2.3.0
 - Mise à jour automatique et silencieuse depuis GitHub (vérification au démarrage puis toutes les 6 h, empreinte SHA-256 contrôlée, application à la fermeture de la fenêtre).
 - Option « Mises à jour automatiques » et « Rechercher une mise à jour » dans les Réglages.

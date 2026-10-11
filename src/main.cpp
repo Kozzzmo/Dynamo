@@ -144,7 +144,7 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_GETMINMAXINFO: {
         MINMAXINFO* mm = (MINMAXINFO*)lParam;
         UINT dpi = GetDpiForWindow(hWnd); if (!dpi) dpi = 96;
-        mm->ptMinTrackSize.x = MulDiv(1080, dpi, 96);
+        mm->ptMinTrackSize.x = MulDiv(1180, dpi, 96);
         mm->ptMinTrackSize.y = MulDiv(740, dpi, 96);
         return 0;
     }
@@ -172,28 +172,66 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
+// Polices embarquees dans l'exe (ressources RCDATA) : Instrument Serif, IBM Plex Mono, Archivo Black (SIL OFL)
+static const void* ResFont(const wchar_t* name, int* size) {
+    HRSRC r = FindResourceW(nullptr, name, MAKEINTRESOURCEW(10) /* RT_RCDATA */);
+    if (!r) return nullptr;
+    HGLOBAL g = LoadResource(nullptr, r);
+    *size = (int)SizeofResource(nullptr, r);
+    return g ? LockResource(g) : nullptr;
+}
+
+static const ImWchar ranges[] = { 0x0020, 0x00FF, 0x0152, 0x0153, 0x2013, 0x2014, 0x2018, 0x201E, 0x2022, 0x2022, 0x2026, 0x2026,
+                                  0x2190, 0x2193, 0x221E, 0x221E, 0x2248, 0x2248, 0 };
+static const ImWchar symbols[] = { 0x2190, 0x2193, 0x221E, 0x221E, 0x2248, 0x2248, 0x2013, 0x2014, 0x2026, 0x2026, 0 };
+
 static void LoadFonts(float dpi) {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
-    static const ImWchar ranges[] = { 0x0020, 0x00FF, 0x0152, 0x0153, 0x2013, 0x2014, 0x2019, 0x201D, 0x2022, 0x2022, 0x2026, 0x2026,
-                                      0x2190, 0x2193, 0x221E, 0x221E, 0x2248, 0x2248, 0 };
     wchar_t win[MAX_PATH]; GetWindowsDirectoryW(win, MAX_PATH);
     std::string fonts = sys::ToUtf8(std::wstring(win) + L"\\Fonts\\");
-    auto load = [&](const char* file, float px, const char* fallback) -> ImFont* {
+
+    auto fromFile = [&](const char* file, float px, const char* fallback, bool merge = false, const ImWchar* rg = ranges) -> ImFont* {
         std::string p = fonts + file;
         if (GetFileAttributesA(p.c_str()) == INVALID_FILE_ATTRIBUTES && fallback) p = fonts + fallback;
-        ImFontConfig cfg; cfg.OversampleH = 2; cfg.OversampleV = 2;
-        ImFont* f = nullptr;
-        if (GetFileAttributesA(p.c_str()) != INVALID_FILE_ATTRIBUTES) f = io.Fonts->AddFontFromFileTTF(p.c_str(), px * dpi, &cfg, ranges);
-        if (!f) { ImFontConfig c2; c2.SizePixels = px * dpi; f = io.Fonts->AddFontDefault(&c2); }
+        ImFontConfig cfg; cfg.OversampleH = 2; cfg.OversampleV = 2; cfg.MergeMode = merge;
+        if (GetFileAttributesA(p.c_str()) != INVALID_FILE_ATTRIBUTES) return io.Fonts->AddFontFromFileTTF(p.c_str(), px * dpi, &cfg, rg);
+        return nullptr;
+    };
+    auto fromRes = [&](const wchar_t* res, float px, bool merge = false, const ImWchar* rg = ranges) -> ImFont* {
+        int sz = 0; const void* data = ResFont(res, &sz);
+        ImFontConfig cfg; cfg.OversampleH = 2; cfg.OversampleV = 2; cfg.MergeMode = merge;
+        cfg.FontDataOwnedByAtlas = false;   // memoire de la ressource, valide tant que l'exe est charge
+        ImFont* f = data ? io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(data), sz, px * dpi, &cfg, rg) : nullptr;
+        if (!f && !merge) f = fromFile("segoeui.ttf", px, nullptr);
+        if (!f && !merge) { ImFontConfig c2; c2.SizePixels = px * dpi; f = io.Fonts->AddFontDefault(&c2); }
         return f;
     };
-    g_ui.fBody  = load("segoeui.ttf", 15.5f, nullptr);
-    g_ui.fSmall = load("segoeui.ttf", 12.5f, nullptr);
-    g_ui.fLabel = load("seguisb.ttf", 12.5f, "segoeuib.ttf");
-    g_ui.fValue = load("seguisb.ttf", 13.5f, "segoeui.ttf");
-    g_ui.fTitle = load("segoeuib.ttf", 22.0f, "segoeui.ttf");
-    io.FontDefault = g_ui.fBody;
+    // serif + symboles manquants (fleches, infini) pris dans Plex Mono
+    auto serif = [&](const wchar_t* res, float px) { ImFont* f = fromRes(res, px); fromRes(L"FONT_MONO", px * 0.8f, true, symbols); return f; };
+
+    UiFontSet& ms = g_ui.setMonoSerif;
+    ms.body  = fromRes(L"FONT_MONO", 13.0f);
+    ms.small = fromRes(L"FONT_MONO", 11.0f);
+    ms.label = fromRes(L"FONT_MONO_SB", 11.5f);
+    ms.value = serif(L"FONT_SERIF", 19.0f);
+    ms.num   = serif(L"FONT_SERIF", 28.0f);
+
+    UiFontSet& mb = g_ui.setMonoBlack;
+    mb.body = ms.body; mb.small = ms.small; mb.label = ms.label;
+    mb.value = fromRes(L"FONT_BLACK", 14.0f);
+    mb.num   = fromRes(L"FONT_BLACK", 20.0f);
+
+    UiFontSet& sa = g_ui.setSans;
+    sa.body  = fromFile("segoeui.ttf", 14.0f, nullptr);
+    sa.small = fromFile("segoeui.ttf", 11.5f, nullptr);
+    sa.label = fromFile("seguisb.ttf", 11.5f, "segoeuib.ttf");
+    sa.value = fromFile("seguisb.ttf", 14.0f, "segoeui.ttf");
+    sa.num   = fromFile("seguisb.ttf", 20.0f, "segoeui.ttf");
+    if (!sa.body) sa = ms;   // pas de Segoe UI (tres rare) : on garde la famille mono
+
+    g_ui.fTitle = serif(L"FONT_SERIF_I", 46.0f);
+    io.FontDefault = ms.body;
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
@@ -266,6 +304,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     ImGui_ImplDX11_Init(g_dev, g_ctx);
 
     g_app.Init();
+    UiSetSkin(g_ui, g_app.settings.skin);
     g_msgTaskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
     TrayAdd();
     TrayUpdateTip();
@@ -316,6 +355,12 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
         UiDraw(g_app, g_ui);
+        if (g_ui.captionDirty) {
+            g_ui.captionDirty = false;
+            COLORREF capc = (COLORREF)g_ui.captionColor, capt = (COLORREF)g_ui.captionText;
+            DwmSetWindowAttribute(g_hwnd, 35 /* DWMWA_CAPTION_COLOR */, &capc, sizeof(capc));
+            DwmSetWindowAttribute(g_hwnd, 36 /* DWMWA_TEXT_COLOR */, &capt, sizeof(capt));
+        }
         ImGui::Render();
         const float clear[4] = { 17 / 255.f, 17 / 255.f, 19 / 255.f, 1 };
         g_ctx->OMSetRenderTargets(1, &g_rtv, nullptr);
