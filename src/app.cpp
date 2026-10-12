@@ -185,8 +185,6 @@ void App::Init() {
     local_ = (DynShared*)VirtualAlloc(nullptr, sizeof(DynShared), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (local_) { local_->layout = DYN_LAYOUT; local_->magic = DYN_MAGIC; }
     if (settings.routingOn && local_) { sh_ = local_; PushParams(); StartRouting(); }
-    else OpenLink();
-    legacyPresent = sys::LegacyPresent();
     Updater::CleanupPrevious();
     if (settings.autoUpdate && !demoDevices) updater.Start(20);
     if (settings.routingOn && settings.startWithWindows) sys::SetAutostart(true);   // pointe vers cette version
@@ -195,18 +193,14 @@ void App::Init() {
 
 void App::Shutdown() {
     updater.Stop();
-    SaveState();
-    SaveSettings();
+    if (!noSaveOnExit) { SaveState(); SaveSettings(); }
     if (settings.routingOn) {
         router.Stop();
         // on rend le son directement a la vraie sortie pour ne pas rester muet sans Dynamo
         // (sauf si Dynamo redemarre aussitot : mise a jour ou nouvelle instance)
         if (!keepRoutingOnExit) sys::SetDefaultDevice(sys::FromUtf8(settings.routeTarget));
     }
-    if (sh_ == local_) sh_ = nullptr;
-    if (sh_) UnmapViewOfFile(sh_);
-    if (map_) CloseHandle((HANDLE)map_);
-    sh_ = nullptr; map_ = nullptr;
+    sh_ = nullptr;
 }
 
 // ---------------------------------------------------------------- reglages
@@ -318,23 +312,7 @@ std::string App::CurrentPresetLabel() const {
     return n;
 }
 
-// ---------------------------------------------------------------- lien avec le moteur
-void App::OpenLink() {
-    if (sh_) return;
-    CreateDirectoryW(DYN_DATA_DIR, nullptr);
-    HANDLE f = nullptr, m = nullptr;
-    DynShared* s = DynOpenShared(&f, &m);
-    if (!s) return;
-    if (s->magic != DYN_MAGIC || s->layout != DYN_LAYOUT) {
-        // premier lancement : l'interface prepare la zone, le moteur la reprendra
-        s->layout = DYN_LAYOUT; s->paramSeq = 0; s->heartbeat = 0;
-        MemoryBarrier();
-        s->magic = DYN_MAGIC;
-    }
-    map_ = m; sh_ = s;
-    PushParams();
-}
-
+// ---------------------------------------------------------------- parametres -> fil audio
 void App::PushParams() {
     DynSanitize(params);
     if (sh_ && sh_->magic == DYN_MAGIC && sh_->layout == DYN_LAYOUT) {
@@ -355,24 +333,16 @@ void App::ParamsChanged() {
 
 void App::SaveState() {
     statePending_ = false;
-    DynStateFile sf = {};
-    sf.magic = DYN_MAGIC; sf.layout = DYN_LAYOUT; sf.size = sizeof(DynParams); sf.seq = 0;
-    sf.params = params;
-    CreateDirectoryW(DYN_DATA_DIR, nullptr);
-    WriteFileAtomic(DYN_STATE_FILE, &sf, sizeof(sf));   // lu par le moteur au demarrage de Windows
     std::string text = SerializeParams(params);
     WriteFileAtomic(DataDir() + L"\\current.ini", text.data(), text.size());
 }
 
 EngineStatus App::Status() const {
-    if (settings.routingOn) return (sh_ && time - lastBeatTime_ < 1.0) ? ENGINE_ACTIVE : ENGINE_WAITING;
-    if (!anyInstalled()) return ENGINE_NOT_INSTALLED;
-    if (sh_ && time - lastBeatTime_ < 1.0) return ENGINE_ACTIVE;
-    return ENGINE_WAITING;
+    if (!settings.routingOn) return ENGINE_OFF;
+    return (sh_ && time - lastBeatTime_ < 1.0) ? ENGINE_ACTIVE : ENGINE_WAITING;
 }
 uint32_t App::sampleRate() const { return sh_ ? sh_->sampleRate : 0; }
 uint32_t App::channels() const { return sh_ ? sh_->channels : 0; }
-bool App::anyInstalled() const { for (auto& d : devices) if (d.installed) return true; return false; }
 
 // ---------------------------------------------------------------- peripheriques
 void App::RefreshDevices() {
@@ -380,7 +350,7 @@ void App::RefreshDevices() {
     devices = sys::ListRenderDevices();
     if (demoDevices && devices.empty()) {
         sys::Device a; a.id = L"{0.0.0.00000000}.{11111111-2222-3333-4444-555555555555}"; a.guid = L"{11111111-2222-3333-4444-555555555555}";
-        a.name = L"Haut-parleurs (RME Fireface UC)"; a.isDefault = true; a.installed = true; devices.push_back(a);
+        a.name = L"Haut-parleurs (RME Fireface UC)"; a.isDefault = true; devices.push_back(a);
         sys::Device b; b.id = L"{0.0.0.00000000}.{66666666-2222-3333-4444-555555555555}"; b.guid = L"{66666666-2222-3333-4444-555555555555}";
         b.name = L"Haut-parleurs (Realtek(R) Audio)"; devices.push_back(b);
     }
@@ -388,53 +358,29 @@ void App::RefreshDevices() {
     bool found = false;
     for (int i = 0; i < (int)devices.size(); ++i) if (devices[i].id == keep) { selectedDevice = i; found = true; }
     if (!found) {
-        // par defaut : le peripherique ou le moteur est installe, sinon la sortie Windows par defaut
-        for (int i = 0; i < (int)devices.size(); ++i) if (devices[i].installed) { selectedDevice = i; found = true; break; }
-        if (!found) for (int i = 0; i < (int)devices.size(); ++i) if (devices[i].isDefault) { selectedDevice = i; break; }
+        for (int i = 0; i < (int)devices.size(); ++i) if (devices[i].isDefault) { selectedDevice = i; break; }
     }
 }
 
-bool App::InstallOnSelected(int mode) {
-    if (selectedDevice < 0 || selectedDevice >= (int)devices.size()) return false;
-    SaveState();
-    const sys::Device& d = devices[selectedDevice];
-    lastError.clear();
-    std::wstring err;
-    if (!sys::RequestElevated(L"install " + d.guid + L" " + std::to_wstring(mode), err)) { lastError = err; return false; }
-    std::wstring id = d.id, name = d.name;
-    if (settings.setAsDefault) sys::SetDefaultDevice(id);
-    RefreshDevices();
-    lastInfo = "Moteur installé sur « " + ToUtf8(name) + " ». Lancez un son pour vérifier.";
-    infoTime = time;
-    if (settings.startWithWindows) sys::SetAutostart(true);
-    return true;
-}
-
-bool App::UninstallFromSelected() {
-    if (selectedDevice < 0 || selectedDevice >= (int)devices.size()) return false;
-    std::wstring err;
-    if (!sys::RequestElevated(L"uninstall " + devices[selectedDevice].guid, err)) { lastError = err; return false; }
-    RefreshDevices();
-    lastInfo = "Moteur retiré de ce périphérique.";
-    infoTime = time;
-    return true;
-}
-
 bool App::UninstallEverything() {
-    std::wstring err;
-    if (!sys::RequestElevated(L"uninstall-all", err)) { lastError = err; return false; }
+    // rien n'a ete installe dans Windows : on rend le son a la vraie sortie,
+    // on retire le lancement au demarrage et on efface les reglages de Dynamo.
+    if (settings.routingOn) DisableRouting();
     sys::SetAutostart(false);
     settings.startWithWindows = false;
-    RefreshDevices();
-    lastInfo = "KDYN-10 a été entièrement désinstallé du système.";
-    infoTime = time;
-    return true;
-}
-
-bool App::RestartAudio() {
-    std::wstring err;
-    if (!sys::RequestElevated(L"restart-audio", err)) { lastError = err; return false; }
-    lastInfo = "Service audio de Windows redémarré.";
+    std::wstring dir = sys::DataDir();
+    WIN32_FIND_DATAW fd;
+    for (const wchar_t* sub : { L"\\presets\\", L"\\" }) {
+        std::wstring d = dir + sub;
+        HANDLE h = FindFirstFileW((d + L"*").c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        do { if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) DeleteFileW((d + fd.cFileName).c_str()); } while (FindNextFileW(h, &fd));
+        FindClose(h);
+    }
+    RemoveDirectoryW((dir + L"\\presets").c_str());
+    RemoveDirectoryW(dir.c_str());
+    noSaveOnExit = true;
+    lastInfo = "KDYN-10 a été retiré : il ne reste plus qu'à supprimer le fichier .exe.";
     infoTime = time;
     return true;
 }
@@ -502,10 +448,8 @@ void App::ComputeSpectrum() {
 
 void App::Tick(double dt) {
     time += dt;
-    if (!sh_ && !settings.routingOn && time >= nextLinkTry_) { OpenLink(); nextLinkTry_ = time + 1.0; }
     if (time >= nextDeviceCheck_) { RefreshDevices(); nextDeviceCheck_ = time + 4.0; }
-    if (statePending_ && time >= stateSaveAt_) SaveState();
-    if (diagRecheckAt > 0 && time >= diagRecheckAt) { diagRecheckAt = -1; RunDiagnostic(); }
+    if (statePending_ && time >= stateSaveAt_ && !noSaveOnExit) SaveState();
 
     float inPk[2] = {0, 0}, outPk[2] = {0, 0}, grNow[DYN_COMP_BANDS] = {0}, limNow = 0;
     bool fresh = false;
@@ -551,78 +495,6 @@ void App::Tick(double dt) {
     }
 }
 
-// ---------------------------------------------------------------- diagnostic
-void App::RunDiagnostic() {
-    RefreshDevices();
-    diag.clear();
-    auto add = [&](const std::string& l, int st, const std::string& d) { diag.push_back({ l, st, d }); };
-    const sys::Device* sel = devices.empty() ? nullptr : &devices[selectedDevice];
-    const sys::Device* def = nullptr;
-    for (auto& d : devices) if (d.isDefault) def = &d;
-
-    if (!sel) { add("Sortie audio", 2, "Aucune sortie audio active trouvée."); }
-    else add("Sortie traitée", 0, ToUtf8(sel->name));
-
-    bool fx = sys::ProcessRunning(L"fxsound.exe") || sys::ProcessRunning(L"FxSound.exe");
-    add("FxSound fermé", fx ? 2 : 0, fx ? "FxSound tourne encore : il détourne le son vers sa sortie virtuelle." : "OK");
-
-    if (sel) {
-        bool same = def && def->id == sel->id;
-        add("Sortie Windows par défaut", same ? 0 : 2,
-            same ? "OK" : "La sortie par défaut est « " + (def ? ToUtf8(def->name) : std::string("?")) + " » au lieu de la sortie traitée.");
-        add("Moteur inscrit sur la sortie", sel->installed ? 0 : 2, sel->installed ? std::string("OK (mode ") + sys::ModeName(sel->mode) + ")" : "Pas encore installé sur cette sortie.");
-        add("Améliorations audio Windows", sel->enhancementsOff ? 2 : 0, sel->enhancementsOff ? "Désactivées pour cette sortie : Windows bloque les effets." : "OK");
-    }
-    if (sel) {
-        float pk = sys::EndpointPeak(sel->id);
-        if (pk >= 0) add("Du son arrive sur la sortie", pk > 0.0005f ? 0 : 1, pk > 0.0005f ? "OK" : "Aucun son en ce moment sur cette sortie (lance une lecture).");
-    }
-    bool files = sys::EngineFilesInstalled(), com = sys::ComRegistered();
-    add("Fichiers du moteur", files && com ? 0 : 2, files && com ? "OK" : (files ? "DLL présente mais non enregistrée." : "DLL absente de Program Files."));
-
-    std::wstring log = sys::ReadFileTail(DYN_LOG_FILE, 4000);
-    std::string logU = ToUtf8(log);
-    bool loaded = logU.find("LockForProcess :") != std::string::npos;
-    bool fileMode = logU.find("mode fichier") != std::string::npos;
-    std::string lastLine;
-    { size_t e = logU.find_last_not_of("\r\n"); if (e != std::string::npos) { size_t b = logU.rfind('\n', e); lastLine = logU.substr(b == std::string::npos ? 0 : b + 1, e - (b == std::string::npos ? 0 : b + 1) + 1); } }
-    if (log.empty()) add("Moteur chargé par Windows", 2, "Jamais chargé (pas de journal moteur.log).");
-    else add("Moteur chargé par Windows", loaded ? 0 : 1, loaded ? "OK — " + lastLine : "Journal présent mais pas de flux audio : " + lastLine);
-    add("Liaison interface / moteur", sh_ ? 0 : (fileMode ? 1 : 2), sh_ ? "OK" : (fileMode ? "Le moteur fonctionne en mode fichier (vumètres indisponibles)." : "Mémoire partagée introuvable."));
-    bool active = Status() == ENGINE_ACTIVE;
-    add("Son traité en ce moment", active ? 0 : 1, active ? "OK" : "Aucun son reçu (lance une lecture pour vérifier).");
-
-    // rapport texte a copier-coller
-    diagReport = std::string("=== Diagnostic Kinetik KDYN-10 ") + DYN_VERSION_STR + " ===\n";
-    for (auto& d : diag) diagReport += std::string(d.state == 0 ? "[OK] " : d.state == 1 ? "[??] " : "[!!] ") + d.label + " : " + d.detail + "\n";
-    diagReport += "\n--- moteur.log ---\n" + ToUtf8(sys::ReadFileTail(DYN_LOG_FILE, 1500));
-    diagReport += "\n--- install.log ---\n" + ToUtf8(sys::ReadInstallLogTail(1500));
-    diagReport += "\n--- sorties ---\n";
-    for (auto& d : devices) diagReport += ToUtf8(d.name) + " " + ToUtf8(d.guid) + (d.isDefault ? " [defaut]" : "") + (d.installed ? " [dynamo]" : "") + (d.enhancementsOff ? " [ameliorations off]" : "") + "\n";
-}
-
-void App::RepairAll() {
-    lastError.clear();
-    if (devices.empty()) return;
-    std::wstring selId = devices[selectedDevice].id, guid = devices[selectedDevice].guid, name = devices[selectedDevice].name;
-    if (sys::ProcessRunning(L"fxsound.exe")) { sys::KillProcess(L"fxsound.exe"); Sleep(800); }
-    sys::SetDefaultDevice(selId);
-    SaveState();
-    std::wstring err; unsigned long code = 0;
-    lastInfo = "Réparation en cours : KDYN-10 teste les modes de branchement (jusqu'à 40 s)…";
-    infoTime = time;
-    bool ok = sys::RequestElevated(L"autofix " + guid, err, &code);
-    sys::SetDefaultDevice(selId);
-    RefreshDevices();
-    for (int i = 0; i < (int)devices.size(); ++i) if (devices[i].id == selId) selectedDevice = i;
-    if (!ok) lastError = err;
-    else if (code >= 100) { lastInfo = std::string("Réparé : le moteur tourne sur « ") + ToUtf8(name) + " » (mode " + sys::ModeName((int)code - 100) + ")."; infoTime = time; }
-    else if (code == 40) lastError = L"Windows refuse de charger le moteur sur cette sortie, quel que soit le mode. Clique sur « Copier le rapport » et envoie-le.";
-    if (settings.startWithWindows) sys::SetAutostart(true);
-    diagRecheckAt = time + 2.0;
-    RunDiagnostic();
-}
-
 // ---------------------------------------------------------------- routage interne
 int App::FindDevice(const std::string& id) const {
     for (int i = 0; i < (int)devices.size(); ++i) if (ToUtf8(devices[i].id) == id) return i;
@@ -664,17 +536,11 @@ bool App::ConfigureRouting(const std::wstring& targetIn, const std::wstring& sou
         if (best < 0) { lastError = L"Il faut une deuxième sortie audio (ex. « Analog (3+4) ») pour le routage."; return false; }
         src = devices[best].id;
     }
-    // le moteur APO inscrit sur la destination n'est plus utile : on le retire (sinon double traitement)
-    if (devices[ti].installed) {
-        std::wstring err;
-        if (!sys::RequestElevated(L"uninstall " + devices[ti].guid, err)) { /* non bloquant */ }
-    }
     router.Stop();
     settings.routingOn = true;
     settings.routeSource = ToUtf8(src);
     settings.routeTarget = ToUtf8(target);
     SaveSettings();
-    if (sh_ && sh_ != local_) { UnmapViewOfFile(sh_); if (map_) CloseHandle((HANDLE)map_); map_ = nullptr; }
     sh_ = local_;
     PushParams();
     StartRouting();
@@ -699,25 +565,7 @@ void App::DisableRouting() {
     settings.routingOn = false;
     SaveSettings();
     sh_ = nullptr;
-    OpenLink();
     RefreshDevices();
     lastInfo = "Routage désactivé : Windows joue directement sur la sortie.";
     infoTime = time;
-}
-
-bool App::CleanupLegacy() {
-    lastError.clear();
-    std::wstring err;
-    bool ok = true;
-    if (sys::LegacyPresent()) ok = sys::RequestElevated(L"cleanup-legacy", err);
-    if (!ok) { lastError = err; return false; }
-    int n = sys::RecycleOldExecutables();
-    legacyPresent = sys::LegacyPresent();
-    Updater::CleanupPrevious();
-    if (settings.autoUpdate && !demoDevices) updater.Start(20);
-    if (settings.startWithWindows) sys::SetAutostart(true);
-    RefreshDevices();
-    lastInfo = "Anciennes versions supprimées" + std::string(n ? " (" + std::to_string(n) + " ancien(s) fichier(s) mis à la corbeille)" : "") + ".";
-    infoTime = time;
-    return true;
 }

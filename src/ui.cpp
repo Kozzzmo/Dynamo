@@ -748,7 +748,7 @@ static void GrHistory(App& app, ImVec2 p, ImVec2 size) {
 
 // ---------------------------------------------------------------- barre du haut
 static char g_saveName[64] = "";
-static bool g_openSaveAs = false, g_openUninstall = false, g_openAbout = false, g_openDiag = false;
+static bool g_openSaveAs = false, g_openUninstall = false, g_openAbout = false;
 
 static const float kTopH = 72.f;
 
@@ -850,7 +850,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
     // LED d'etat dans la liste
     {
         ImU32 c = TH->faint;
-        if (app.RoutingActive() || (!app.devices.empty() && app.devices[app.selectedDevice].installed)) c = app.Status() == ENGINE_ACTIVE ? TH->ok : TH->warn;
+        if (app.RoutingActive()) c = app.Status() == ENGINE_ACTIVE ? TH->ok : TH->warn;
         GlowDot(dl, ImVec2(comboPos.x + S(14), comboPos.y + comboH / 2), S(4), c);
     }
 
@@ -899,7 +899,6 @@ static void TopBar(App& app, ImVec2 p, float w) {
             app.SaveSettings();
             if (app.settings.autoUpdate) app.updater.Start(1); else app.updater.Stop();
         }
-        if (ImGui::Checkbox("Définir comme sortie Windows par défaut à l'installation", &app.settings.setAsDefault)) app.SaveSettings();
         ImGui::Separator();
         ImGui::PushFont(U->fSmall); ImGui::TextDisabled("ROUTAGE"); ImGui::PopFont();
         if (!app.RoutingActive()) {
@@ -918,18 +917,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
             if (ImGui::MenuItem("Désactiver le routage")) app.DisableRouting();
         }
         ImGui::Separator();
-        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("MODE AVANCÉ : MOTEUR DANS WINDOWS (APO)"); ImGui::PopFont();
-        bool inst = !app.devices.empty() && app.devices[app.selectedDevice].installed;
-        if (ImGui::MenuItem(inst ? "Réinstaller le moteur (standard)" : "Installer le moteur (standard)")) app.InstallOnSelected(sys::MODE_EFX);
-        if (ImGui::MenuItem("Installer en mode compatibilité")) app.InstallOnSelected(sys::MODE_MFX);
-        if (ImGui::IsItemHovered()) { ImGui::PushFont(U->fSmall); ImGui::SetTooltip("À utiliser si le mode standard ne traite pas le son\n(certains pilotes n'acceptent pas les effets de sortie)."); ImGui::PopFont(); }
-        if (ImGui::MenuItem("Retirer le moteur de ce périphérique", nullptr, false, inst)) app.UninstallFromSelected();
-        if (ImGui::MenuItem("Définir comme sortie Windows par défaut", nullptr, false, !app.devices.empty() && !app.devices[app.selectedDevice].isDefault)) app.MakeSelectedDefault();
-        if (ImGui::MenuItem("Redémarrer le service audio de Windows")) app.RestartAudio();
-        if (ImGui::MenuItem("Diagnostic et réparation…")) { app.RunDiagnostic(); g_openDiag = true; }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Ouvrir le dossier des journaux")) ShellExecuteW(nullptr, L"open", DYN_DATA_DIR, nullptr, nullptr, SW_SHOWNORMAL);
-        if (ImGui::MenuItem("Supprimer les anciennes versions")) app.CleanupLegacy();
+        if (ImGui::MenuItem("Ouvrir le dossier des réglages")) ShellExecuteW(nullptr, L"open", sys::DataDir().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         if (ImGui::MenuItem("Désinstaller complètement KDYN-10…")) g_openUninstall = true;
         if (ImGui::MenuItem("Rechercher une mise à jour")) { app.updater.Start(0); app.updater.CheckNow(); }
         if (ImGui::MenuItem("À propos")) g_openAbout = true;
@@ -949,7 +937,7 @@ static void StatusBar(App& app, ImVec2 p, float w) {
     std::string msg;
     char buf[256];
     EngineStatus st = app.Status();
-    int action = 0; // 1 installer, 2 definir par defaut, 3 redemarrer audio
+    int action = 0; // 5 activer, 6 rediriger, 8 redemarrer (mise a jour)
     bool virtualFx = d && (d->name.find(L"FxSound") != std::wstring::npos);
     if (app.RoutingActive()) {
         std::string srcN = app.DeviceName(app.settings.routeSource), dstN = app.DeviceName(app.settings.routeTarget);
@@ -973,30 +961,14 @@ static void StatusBar(App& app, ImVec2 p, float w) {
         }
     }
     else if (!d) { msg = "Aucune sortie audio active n'a été trouvée."; dot = col::err; }
-    else if (virtualFx && !d->installed) {
+    else if (virtualFx) {
         dot = col::warn;
         msg = "Ceci est la sortie virtuelle de FxSound : choisissez votre interface audio (ex. RME Fireface UC) dans la liste en haut à droite.";
     }
-    else if (!d->installed || true) {
+    else {
         dot = col::warn;
         snprintf(buf, sizeof(buf), "KDYN-10 n'est pas actif. « Activer » : Windows jouera vers une sortie libre de ta carte, KDYN-10 traitera et enverra le son sur « %s ».", sys::ToUtf8(d->name).c_str());
         msg = buf; action = 5;
-    } else if (st == ENGINE_ACTIVE) {
-        dot = app.params.bypass ? col::warn : col::ok;
-        snprintf(buf, sizeof(buf), "%s  ·  %s  ·  %u Hz  ·  %u canaux  ·  latence ajoutée : 0 ms",
-                 app.params.bypass ? "Contourné (son d'origine)" : "Traitement actif", sys::ToUtf8(d->name).c_str(), app.sampleRate(), app.channels());
-        msg = buf;
-        if (!d->isDefault) { msg += "   —   ce n'est pas la sortie par défaut de Windows"; action = 2; }
-    } else {
-        dot = col::warn;
-        snprintf(buf, sizeof(buf), "Installé sur « %s » — en attente de son. Lancez une lecture ; sans effet, redémarrez l'audio ou essayez le mode compatibilité (menu Réglages).", sys::ToUtf8(d->name).c_str());
-        msg = buf;
-        action = 4;
-    }
-    if (app.RoutingActive() && app.legacyPresent && app.lastError.empty()) {
-        dot = col::warn;
-        msg = "Des restes des anciennes versions de Dynamo (1.x, ancien nom de KDYN-10) sont encore installés dans Windows.";
-        action = 7;
     }
     if (app.updater.state == Updater::READY && app.lastError.empty()) {
         dot = col::ok;
@@ -1004,11 +976,11 @@ static void StatusBar(App& app, ImVec2 p, float w) {
         msg = buf; action = 8;
     }
     if (!app.lastError.empty()) { msg = sys::ToUtf8(app.lastError); dot = col::err; }
-    else if (!app.lastInfo.empty() && app.time - app.infoTime < 8.0) { msg = app.lastInfo; if (action == 7) action = 0; }
+    else if (!app.lastInfo.empty() && app.time - app.infoTime < 8.0) msg = app.lastInfo;
 
     GlowDot(dl, ImVec2(p.x + S(18), p.y + h / 2), S(4.5f), dot);
     float btnW = 0;
-    const char* btn = action == 8 ? "Redémarrer maintenant" : action == 7 ? "Tout supprimer" : action == 5 ? "Activer" : action == 6 ? "Rediriger vers KDYN-10" : action == 1 ? "Installer sur ce périphérique" : action == 2 ? "Définir par défaut" : action == 3 ? "Redémarrer l'audio" : action == 4 ? "Diagnostic et réparation" : nullptr;
+    const char* btn = action == 8 ? "Redémarrer maintenant" : action == 5 ? "Activer" : action == 6 ? "Rediriger vers KDYN-10" : nullptr;
     if (!app.lastError.empty()) btn = "OK";
     if (btn) btnW = LabelWidth(U->fLabel, btn) + S(28);
     dl->PushClipRect(p, ImVec2(p.x + w - btnW - S(16), p.y + h), true);
@@ -1016,19 +988,13 @@ static void StatusBar(App& app, ImVec2 p, float w) {
     dl->PopClipRect();
     if (btn) {
         ImGui::SetCursorScreenPos(ImVec2(p.x + w - btnW - S(5), p.y + S(5)));
-        bool primary = (action == 1 || action == 4 || action == 5 || action == 6 || action == 7 || action == 8) && app.lastError.empty();
+        bool primary = app.lastError.empty();
         if (KButton(btn, ImVec2(btnW, h - S(10)), primary)) {
             if (!app.lastError.empty()) app.lastError.clear();
-            else if (action == 7) app.CleanupLegacy();
             else if (action == 8) U->requestRestart = true;
             else if (action == 5) app.ConfigureRouting(app.devices[app.selectedDevice].id);
             else if (action == 6) app.StartRouting();
-            else if (action == 1) app.InstallOnSelected(sys::MODE_EFX);
-            else if (action == 2) app.MakeSelectedDefault();
-            else if (action == 3) app.RestartAudio();
-            else if (action == 4) { app.RunDiagnostic(); g_openDiag = true; }
         }
-        if (action == 1 || action == 4) Tip("Une autorisation administrateur sera demandée.\nLe son sera coupé une seconde pendant le redémarrage de l'audio.");
     }
 }
 
@@ -1349,7 +1315,6 @@ static void Modals(App& app) {
     if (g_openSaveAs) { ImGui::OpenPopup("Enregistrer le preset"); g_openSaveAs = false; }
     if (g_openUninstall) { ImGui::OpenPopup("Désinstaller KDYN-10"); g_openUninstall = false; }
     if (g_openAbout) { ImGui::OpenPopup("À propos de Kinetik KDYN-10"); g_openAbout = false; }
-    if (g_openDiag) { ImGui::OpenPopup("Diagnostic"); g_openDiag = false; }
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -1372,44 +1337,12 @@ static void Modals(App& app) {
 
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Désinstaller KDYN-10", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Retirer le moteur de tous les périphériques, restaurer les effets\nd'origine de Windows et supprimer les fichiers installés ?");
-        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Vos presets personnels sont conservés dans %%APPDATA%%\\Dynamo."); ImGui::PopFont();
+        ImGui::Text("Rendre le son directement à la sortie audio, retirer le lancement\nau démarrage de Windows et effacer tous les réglages et presets ?");
+        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("KDYN-10 n'installe rien d'autre : il suffit ensuite de supprimer le fichier .exe."); ImGui::PopFont();
         ImGui::Spacing();
-        if (KButton("Désinstaller", ImVec2(S(140), 0), true)) { app.UninstallEverything(); ImGui::CloseCurrentPopup(); }
+        if (KButton("Désinstaller", ImVec2(S(140), 0), true)) { app.UninstallEverything(); ImGui::CloseCurrentPopup(); U->requestQuit = true; }
         ImGui::SameLine();
         if (KButton("Annuler", ImVec2(S(140), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
-    }
-
-    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("Diagnostic", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static double nextRefresh = 0;
-        if (app.time > nextRefresh) { app.RunDiagnostic(); nextRefresh = app.time + 2.0; }
-        ImGui::TextDisabled("Vérification automatique (actualisée toutes les 2 s). Laisse de la musique jouer.");
-        ImGui::Spacing();
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        for (auto& d : app.diag) {
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            ImU32 c = d.state == 0 ? col::ok : d.state == 1 ? col::warn : col::err;
-            dl->AddCircleFilled(ImVec2(p.x + S(7), p.y + ImGui::GetFontSize() * 0.55f), S(5), c, 16);
-            ImGui::SetCursorScreenPos(ImVec2(p.x + S(20), p.y));
-            ImGui::Text("%s", d.label.c_str());
-            ImGui::SameLine(S(300));
-            ImGui::PushTextWrapPos(S(760));
-            ImGui::TextColored(d.state == 0 ? V4(col::dim) : V4(c), "%s", d.detail.c_str());
-            ImGui::PopTextWrapPos();
-        }
-        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
-        ImGui::PushFont(U->fSmall);
-        ImGui::TextDisabled("« Tout réparer » ferme FxSound, définit la sortie par défaut, réactive les améliorations audio,\npuis essaie automatiquement les 4 modes de branchement jusqu'à ce que le moteur tourne\n(une seule autorisation administrateur, jusqu'à 40 s, le son peut se couper quelques fois).");
-        ImGui::PopFont();
-        ImGui::Spacing();
-        if (KButton("Tout réparer", ImVec2(S(170), 0), true)) app.RepairAll();
-        ImGui::SameLine();
-        if (KButton("Copier le rapport", ImVec2(S(170), 0))) ImGui::SetClipboardText(app.diagReport.c_str());
-        ImGui::SameLine();
-        if (KButton("Fermer", ImVec2(S(120), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
-        if (!app.lastError.empty()) { ImGui::Spacing(); ImGui::TextColored(V4(col::err), "%s", sys::ToUtf8(app.lastError).c_str()); }
         ImGui::EndPopup();
     }
 
@@ -1440,9 +1373,8 @@ static void Modals(App& app) {
         ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Anciennement « Dynamo ». Composants tiers : Dear ImGui (licence MIT), polices Instrument Serif,\nIBM Plex Mono et Archivo Black (SIL Open Font License 1.1) : voir THIRD_PARTY_NOTICES.txt."); ImGui::PopFont();
         ImGui::Spacing();
         ImGui::PushFont(U->fSmall);
-        ImGui::TextDisabled("Le traitement est inséré directement dans le moteur audio de Windows\n"
-                            "(effet de sortie sur le périphérique choisi) : aucune latence ajoutée,\n"
-                            "aucun pilote ni logiciel tiers.\n\n"
+        ImGui::TextDisabled("Windows joue vers une sortie libre de ta carte son ; KDYN-10 capte ce son, le traite\n"
+                            "et l'envoie vers ta vraie sortie. Aucun pilote, aucun droit administrateur.\n\n"
                             "Raccourcis : Ctrl+S enregistrer le preset · double-clic sur un bouton = valeur par défaut\n"
                             "clic droit sur un bouton = saisir une valeur · Maj = réglage fin");
         ImGui::PopFont();
@@ -1494,17 +1426,6 @@ void UiDraw(App& app, UiContext& ui) {
     CompressorPanel(app, ImVec2(m, y), ImVec2(W - 2 * m - limW - S(10), dynH));
     LimiterPanel(app, ImVec2(W - m - limW, y), ImVec2(limW, dynH));
 
-    // ouverture automatique du diagnostic si le moteur installe ne recoit rien
-    {
-        static bool autoDiagDone = false;
-        static double waitingSince = -1;
-        bool waiting = !app.RoutingActive() && !app.devices.empty() && app.devices[app.selectedDevice].installed && app.Status() == ENGINE_WAITING;
-        if (!waiting) waitingSince = -1;
-        else if (waitingSince < 0) waitingSince = app.time;
-        if (!autoDiagDone && waiting && app.time - waitingSince > 12.0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
-            autoDiagDone = true; app.RunDiagnostic(); g_openDiag = true;
-        }
-    }
     Modals(app);
 
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {

@@ -13,12 +13,6 @@ struct Preset {
     bool builtin = false;
 };
 
-struct DiagItem {
-    std::string label;
-    int state = 0;          // 0 = ok, 1 = attention, 2 = probleme
-    std::string detail;
-};
-
 struct Settings {
     bool startWithWindows = false;
     bool closeToTray = true;
@@ -36,8 +30,8 @@ struct Settings {
 };
 
 enum EngineStatus {
-    ENGINE_NOT_INSTALLED,    // aucun peripherique n'a le moteur
-    ENGINE_WAITING,          // installe mais aucun son ne passe (ou pas encore charge)
+    ENGINE_OFF,              // routage desactive
+    ENGINE_WAITING,          // routage actif mais aucun son ne passe
     ENGINE_ACTIVE,           // du son est traite
 };
 
@@ -66,10 +60,7 @@ public:
     std::vector<sys::Device> devices;
     int selectedDevice = 0;
     void RefreshDevices();
-    bool InstallOnSelected(int mode);
-    bool UninstallFromSelected();
-    bool UninstallEverything();
-    bool RestartAudio();
+    bool UninstallEverything();   // arrete le routage, retire le demarrage auto, efface les reglages
     bool MakeSelectedDefault();
     std::wstring lastError;
     std::string  lastInfo;
@@ -80,7 +71,6 @@ public:
     bool linked() const { return sh_ != nullptr; }
     uint32_t sampleRate() const;
     uint32_t channels() const;
-    bool anyInstalled() const;
 
     // vumetres (lisses pour l'affichage)
     float inLevel[2] = {0, 0}, outLevel[2] = {0, 0};     // dB
@@ -100,12 +90,6 @@ public:
     void SaveSettings();
 
     double time = 0;
-    // diagnostic / reparation automatique
-    std::vector<DiagItem> diag;
-    std::string diagReport;
-    void RunDiagnostic();
-    void RepairAll();
-    double diagRecheckAt = -1;
 
     // routage interne (capture de "Analog (3+4)" -> traitement -> "Haut-parleurs")
     Router router;
@@ -117,21 +101,18 @@ public:
     int FindDevice(const std::string& id) const;
 
     Updater updater;
+    bool noSaveOnExit = false;        // apres "Desinstaller" : ne rien reecrire sur le disque
     bool keepRoutingOnExit = false;   // relance (mise a jour / nouvelle instance) : ne pas toucher a la sortie Windows
-    bool legacyPresent = false;
-    bool CleanupLegacy();
 
     bool demoDevices = false;   // --demo : peripheriques fictifs (tests d'affichage)
 
 private:
-    void OpenLink();
     void PushParams();
     void SaveState();
     void LoadSettings();
     void ComputeSpectrum();
     std::wstring DataDir() const;
 
-    void* map_ = nullptr;
     DynShared* local_ = nullptr;
     DynShared* sh_ = nullptr;
     int32_t lastBeat_ = 0;

@@ -2,7 +2,6 @@
 #include "version.h"
 1 ICON "dynamo.ico"
 1 RT_MANIFEST "app.manifest"
-APODLL RCDATA "../build/DynamoAPO.dll"
 FONT_SERIF RCDATA "fonts/InstrumentSerif-Regular.ttf"
 FONT_SERIF_I RCDATA "fonts/InstrumentSerif-Italic.ttf"
 FONT_MONO RCDATA "fonts/IBMPlexMono-Medium.ttf"
@@ -18,8 +17,12 @@ BEGIN
   BEGIN
     BLOCK "040C04B0"
     BEGIN
+      VALUE "CompanyName", "Kozzzmo"
       VALUE "FileDescription", "Kinetik KDYN-10 - compresseur et egaliseur audio"
+      VALUE "InternalName", "Dynamo"
       // ProductName reste "Dynamo" : nom interne verifie par le systeme de mise a jour des versions deja installees
+      VALUE "OriginalFilename", "Dynamo.exe"
+      VALUE "LegalCopyright", "Copyright (C) 2026 Kozzzmo"
       VALUE "ProductName", "Dynamo"
       VALUE "FileVersion", DYN_VERSION_STR
       VALUE "ProductVersion", DYN_VERSION_STR

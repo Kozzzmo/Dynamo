@@ -13,6 +13,9 @@ sans pilote ni logiciel tiers.
 Un seul fichier, rien à installer. Au premier lancement, Windows SmartScreen peut afficher un
 avertissement (le logiciel n'est pas signé) : *Informations complémentaires → Exécuter quand même*.
 
+KDYN-10 ne demande jamais les droits administrateur et n'installe rien dans Windows : il ne crée
+que ses réglages dans `%APPDATA%\Dynamo` et, si vous le souhaitez, une entrée « lancer au démarrage ».
+
 Ensuite, KDYN-10 **se met à jour tout seul** : il vérifie au démarrage puis toutes les 6 heures,
 télécharge la nouvelle version, contrôle son empreinte SHA-256 et l'applique quand la fenêtre est fermée.
 

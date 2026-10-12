@@ -1,5 +1,12 @@
 # Historique des versions
 
+## 2.6.0
+- Version « propre » pour les antivirus : l'ancien moteur intégré à Windows (APO) est entièrement retiré.
+  KDYN-10 ne contient plus de DLL embarquée, ne demande plus jamais les droits administrateur,
+  ne modifie plus le registre système et ne ferme plus d'autres programmes.
+- « Désinstaller » rend le son à la sortie audio, retire le lancement au démarrage et efface les réglages.
+- Fiche de version complète dans l'exe (éditeur, description, copyright).
+
 ## 2.5.0
 - Dynamo devient **Kinetik KDYN-10** (nouveau nom, même logiciel) : logo Kinetik, nom dans la fenêtre, le menu et la zone de notification.
   Réglages, presets et mises à jour automatiques sont conservés.

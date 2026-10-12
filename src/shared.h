@@ -1,5 +1,5 @@
-// Dynamo - structures partagees entre le moteur audio (APO, dans audiodg.exe)
-// et l'interface. Uniquement des types POD, disposition fixe.
+// Dynamo - structures partagees entre le fil audio (routage) et l'interface.
+// Uniquement des types POD, disposition fixe.
 #pragma once
 #include <stdint.h>
 
@@ -9,14 +9,6 @@
 #define DYN_COMP_BANDS   4             // [0] = mono-bande, [1..3] = grave / medium / aigu
 #define DYN_SPEC_SIZE    8192          // tampon circulaire pour l'analyseur de spectre
 
-#define DYN_SHARED_FILE  L"C:\\ProgramData\\Dynamo\\shared.bin"
-#define DYN_DATA_DIR     L"C:\\ProgramData\\Dynamo"
-#define DYN_STATE_FILE   L"C:\\ProgramData\\Dynamo\\state.bin"
-#define DYN_LOG_FILE     L"C:\\ProgramData\\Dynamo\\moteur.log"
-
-// CLSID du moteur : {8B4F2C61-3E7A-4D19-9C55-6A1E0F2D7B93}
-#define DYN_CLSID_STR    L"{8B4F2C61-3E7A-4D19-9C55-6A1E0F2D7B93}"
-#define DYN_CLSID_INIT   { 0x8b4f2c61, 0x3e7a, 0x4d19, { 0x9c, 0x55, 0x6a, 0x1e, 0x0f, 0x2d, 0x7b, 0x93 } }
 
 enum DynEqType : int32_t {
     EQ_PEAK = 0,
@@ -94,15 +86,6 @@ struct DynShared {
     DynMeters meters;
     volatile uint32_t specWrite;
     float spec[DYN_SPEC_SIZE];
-};
-
-// Fichier d'etat persistant : en-tete + parametres
-struct DynStateFile {
-    uint32_t magic;
-    uint32_t layout;
-    uint32_t size;
-    uint32_t seq;
-    DynParams params;
 };
 
 inline void DynDefaultParams(DynParams& p) {
@@ -184,26 +167,3 @@ inline void DynSanitize(DynParams& p) {
     p.limCeiling = DynClampF(p.limCeiling, -24.f, 0.f, -0.3f);
     p.limRelease = DynClampF(p.limRelease, 1.f, 2000.f, 60.f);
 }
-
-#ifdef _WIN32
-#include <windows.h>
-// Memoire partagee adossee a un fichier : fonctionne meme depuis audiodg.exe (jeton a ecriture restreinte),
-// sans espace de noms global ni privilege particulier.
-inline DynShared* DynOpenShared(HANDLE* fileOut, HANDLE* mapOut, bool readOnly = false) {
-    *fileOut = nullptr; *mapOut = nullptr;
-    HANDLE f = CreateFileW(DYN_SHARED_FILE, readOnly ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE),
-                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                           readOnly ? OPEN_EXISTING : OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (f == INVALID_HANDLE_VALUE) return nullptr;
-    if (readOnly) {
-        LARGE_INTEGER sz; GetFileSizeEx(f, &sz);
-        if (sz.QuadPart < (LONGLONG)sizeof(DynShared)) { CloseHandle(f); return nullptr; }
-    }
-    HANDLE m = CreateFileMappingW(f, nullptr, readOnly ? PAGE_READONLY : PAGE_READWRITE, 0, sizeof(DynShared), nullptr);
-    if (!m) { CloseHandle(f); return nullptr; }
-    DynShared* s = (DynShared*)MapViewOfFile(m, readOnly ? FILE_MAP_READ : FILE_MAP_ALL_ACCESS, 0, 0, sizeof(DynShared));
-    if (!s) { CloseHandle(m); CloseHandle(f); return nullptr; }
-    *fileOut = f; *mapOut = m;
-    return s;
-}
-#endif

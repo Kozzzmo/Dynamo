@@ -239,12 +239,6 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-    // Processus administrateur : installation / desinstallation
-    if (argc >= 2 && wcscmp(argv[1], L"--elevated") == 0) {
-        int r = sys::RunElevatedCommand(argc - 2, argv + 2);
-        CoUninitialize();
-        return r;
-    }
     bool startHidden = false;
     for (int i = 1; i < argc; ++i) {
         if (wcscmp(argv[i], L"--tray") == 0) startHidden = true;
