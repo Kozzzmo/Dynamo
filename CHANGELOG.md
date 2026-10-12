@@ -1,5 +1,9 @@
 # Historique des versions
 
+## 2.7.0
+- Les mises à jour automatiques viennent désormais du dépôt public de téléchargements Kinetik
+  (github.com/Kozzzmo/kinetik-downloads), pour que le code source puisse devenir privé.
+
 ## 2.6.1
 - Skin NEON : le rose devient rouge (limiteur, haut des vumètres), comme dans les plugins Kinetik.
 

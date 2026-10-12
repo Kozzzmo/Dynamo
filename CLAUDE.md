@@ -10,14 +10,17 @@ The product was renamed from "Dynamo" to **Kinetik KDYN-10** in user-visible tex
 migration: the version resource `ProductName` ("Dynamo", checked by the updater of installed copies and by
 `RecycleOldExecutables`), registry keys `SOFTWARE\Dynamo`, `C:\ProgramData\Dynamo`, `%APPDATA%\Dynamo`,
 `DynamoAPO.dll`, the CLSID, mutex/window class names, the autostart value, the preset format header `[Dynamo]`,
-the release asset `Dynamo.exe` + `latest.txt` read by the updater (`DYN_UPDATE_REPO` in `src/version.h`).
+the release assets `Dynamo.exe` + `latest.txt` read by the updater.
 Releases also carry `Kinetik-KDYN10.exe` (same file) for new downloads.
 
 ## Releasing
 
-Bump `src/version.h`, add a `CHANGELOG.md` section, push to `main`: `.github/workflows/release.yml` builds and
-publishes `v<version>` (only if that version is new). Installed copies update themselves from the latest release:
-if this repository becomes private, move the release downloads elsewhere first (tracker task I3).
+Bump `src/version.h`, add a `CHANGELOG.md` section, push to `main`: `.github/workflows/release.yml` builds, uploads
+`Kinetik-KDYN10.exe`, `Dynamo.exe` and `latest.txt` to the fixed-tag release `kdyn10` of the PUBLIC repository
+`Kozzzmo/kinetik-downloads` (secret `DOWNLOADS_TOKEN`), then creates `v<version>` here (only if new).
+Installed copies >= 2.7.0 update from `DYN_UPDATE_BASE` (`src/version.h`) = that public release, so this
+repository can be private. Copies <= 2.6.1 still read this repository's latest release: keep it public until they
+have updated (they check at start-up and every 6 hours).
 
 ## Working with the owner (read first)
 

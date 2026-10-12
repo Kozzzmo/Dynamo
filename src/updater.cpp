@@ -1,9 +1,9 @@
-// Dynamo - mise a jour automatique (WinHTTP + SHA-256), sans droits administrateur.
+// Kinetik KDYN-10 (ex-Dynamo) - mise a jour automatique (WinHTTP + SHA-256), sans droits administrateur.
 //
 // Publication : la page Releases du depot contient deux fichiers
 //   latest.txt  : ligne 1 = version (ex. 2.3.0), ligne 2 = SHA-256 de Dynamo.exe
 //   Dynamo.exe  : l'application
-// et ils sont lus via https://github.com/<repo>/releases/latest/download/<fichier>.
+// et ils sont lus a l'adresse DYN_UPDATE_BASE (version.h) + <fichier>.
 //
 // Installation : le fichier .exe en cours d'execution peut etre renomme sous Windows ;
 // on renomme donc Dynamo.exe -> Dynamo.exe.old puis on met la nouvelle version a sa place.
@@ -150,7 +150,7 @@ static std::string Trim(const std::string& s) {
 // ---------------------------------------------------------------- verification + installation
 bool Updater::CheckOnce() {
     state = CHECKING;
-    std::wstring base = std::wstring(L"https://github.com/") + DYN_UPDATE_REPO + L"/releases/latest/download/";
+    std::wstring base = DYN_UPDATE_BASE;
     wchar_t ov[512];   // adresse de test (developpement uniquement)
     if (GetEnvironmentVariableW(L"DYNAMO_UPDATE_BASE", ov, 512)) base = ov;
     std::vector<char> txt;

@@ -8,7 +8,7 @@ sans pilote ni logiciel tiers.
 
 ## Télécharger
 
-👉 **[Dernière version de Kinetik KDYN-10](../../releases/latest/download/Kinetik-KDYN10.exe)** (Windows 64 bits)
+👉 **[Dernière version de Kinetik KDYN-10](https://github.com/Kozzzmo/kinetik-downloads/releases/download/kdyn10/Kinetik-KDYN10.exe)** (Windows 64 bits)
 
 Un seul fichier, rien à installer. Au premier lancement, Windows SmartScreen peut afficher un
 avertissement (le logiciel n'est pas signé) : *Informations complémentaires → Exécuter quand même*.
