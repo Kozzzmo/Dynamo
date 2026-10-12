@@ -426,7 +426,7 @@ bool App::UninstallEverything() {
     sys::SetAutostart(false);
     settings.startWithWindows = false;
     RefreshDevices();
-    lastInfo = "Dynamo a été entièrement désinstallé du système.";
+    lastInfo = "KDYN-10 a été entièrement désinstallé du système.";
     infoTime = time;
     return true;
 }
@@ -593,7 +593,7 @@ void App::RunDiagnostic() {
     add("Son traité en ce moment", active ? 0 : 1, active ? "OK" : "Aucun son reçu (lance une lecture pour vérifier).");
 
     // rapport texte a copier-coller
-    diagReport = std::string("=== Diagnostic Dynamo ") + DYN_VERSION_STR + " ===\n";
+    diagReport = std::string("=== Diagnostic Kinetik KDYN-10 ") + DYN_VERSION_STR + " ===\n";
     for (auto& d : diag) diagReport += std::string(d.state == 0 ? "[OK] " : d.state == 1 ? "[??] " : "[!!] ") + d.label + " : " + d.detail + "\n";
     diagReport += "\n--- moteur.log ---\n" + ToUtf8(sys::ReadFileTail(DYN_LOG_FILE, 1500));
     diagReport += "\n--- install.log ---\n" + ToUtf8(sys::ReadInstallLogTail(1500));
@@ -609,7 +609,7 @@ void App::RepairAll() {
     sys::SetDefaultDevice(selId);
     SaveState();
     std::wstring err; unsigned long code = 0;
-    lastInfo = "Réparation en cours : Dynamo teste les modes de branchement (jusqu'à 40 s)…";
+    lastInfo = "Réparation en cours : KDYN-10 teste les modes de branchement (jusqu'à 40 s)…";
     infoTime = time;
     bool ok = sys::RequestElevated(L"autofix " + guid, err, &code);
     sys::SetDefaultDevice(selId);
@@ -680,7 +680,7 @@ bool App::ConfigureRouting(const std::wstring& targetIn, const std::wstring& sou
     StartRouting();
     sys::SetAutostart(true); settings.startWithWindows = true;
     RefreshDevices();
-    lastInfo = "Routage activé : Windows joue sur « " + DeviceName(settings.routeSource) + " », Dynamo traite et envoie sur « " + DeviceName(settings.routeTarget) + " ».";
+    lastInfo = "Routage activé : Windows joue sur « " + DeviceName(settings.routeSource) + " », KDYN-10 traite et envoie sur « " + DeviceName(settings.routeTarget) + " ».";
     infoTime = time;
     return true;
 }

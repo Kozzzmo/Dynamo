@@ -759,7 +759,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
     // ---- logo : nom en serif italique + etoile a quatre branches + code produit (comme Kinetik / J-Slice)
     {
         ImFont* lf = U->fTitle;
-        const char* name = "Dynamo";
+        const char* name = "Kinetik";
         ImVec2 ts = TextSize(lf, name);
         ImVec2 tp(p.x + S(18), p.y + (h - ts.y) / 2 - S(2));
         const ImU32 star = TH->halftone ? TH->btnEdge : (TH->knob == KS_ARC ? TH->accent : TH->accent);
@@ -769,9 +769,9 @@ static void TopBar(App& app, ImVec2 p, float w) {
         } else TextAt(dl, lf, tp, TH->text, name);
         DrawSparkle(dl, ImVec2(tp.x + ts.x + S(16), tp.y + S(14)), S(8.5f), star);
         const float sx = tp.x + ts.x + S(34);
-        char ver[32]; snprintf(ver, sizeof(ver), "DYN-%s", DYN_VERSION_SHORT);
-        Label(dl, U->fLabel, ImVec2(sx, p.y + h / 2 - S(8)), TH->text, ver, 0);
-        if (w > S(1240)) Label(dl, U->fSmall, ImVec2(sx, p.y + h / 2 + S(9)), TH->dim, "Compresseur · Égaliseur", 0);
+        Label(dl, U->fLabel, ImVec2(sx, p.y + h / 2 - S(8)), TH->text, "KDYN-10", 0);
+        char sub[64]; snprintf(sub, sizeof(sub), "Compresseur · Égaliseur · v%s", DYN_VERSION_SHORT);
+        if (w > S(1240)) Label(dl, U->fSmall, ImVec2(sx, p.y + h / 2 + S(9)), TH->dim, sub, 0);
     }
 
     // ---- presets
@@ -892,7 +892,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
                 if (ImGui::MenuItem(kSkins[i].name, nullptr, i == U->skin)) { app.settings.skin = i; UiSetSkin(*U, i); app.SaveSettings(); }
             ImGui::EndMenu();
         }
-        if (ImGui::Checkbox("Lancer Dynamo au démarrage de Windows", &app.settings.startWithWindows)) { sys::SetAutostart(app.settings.startWithWindows); app.SaveSettings(); }
+        if (ImGui::Checkbox("Lancer KDYN-10 au démarrage de Windows", &app.settings.startWithWindows)) { sys::SetAutostart(app.settings.startWithWindows); app.SaveSettings(); }
         if (ImGui::Checkbox("Fermer la fenêtre = réduire près de l'horloge", &app.settings.closeToTray)) app.SaveSettings();
         if (ImGui::Checkbox("Afficher l'analyseur de spectre", &app.settings.showSpectrum)) app.SaveSettings();
         if (ImGui::Checkbox("Mises à jour automatiques", &app.settings.autoUpdate)) {
@@ -905,7 +905,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
         if (!app.RoutingActive()) {
             if (ImGui::MenuItem("Activer le routage (recommandé)") && !app.devices.empty()) app.ConfigureRouting(app.devices[app.selectedDevice].id);
         } else {
-            if (ImGui::BeginMenu("Sortie capturée par Dynamo")) {
+            if (ImGui::BeginMenu("Sortie capturée par KDYN-10")) {
                 for (auto& d : app.devices) {
                     std::string id = sys::ToUtf8(d.id);
                     if (id == app.settings.routeTarget) continue;
@@ -914,7 +914,7 @@ static void TopBar(App& app, ImVec2 p, float w) {
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::MenuItem("Rediriger Windows vers Dynamo")) app.StartRouting();
+            if (ImGui::MenuItem("Rediriger Windows vers KDYN-10")) app.StartRouting();
             if (ImGui::MenuItem("Désactiver le routage")) app.DisableRouting();
         }
         ImGui::Separator();
@@ -930,11 +930,11 @@ static void TopBar(App& app, ImVec2 p, float w) {
         ImGui::Separator();
         if (ImGui::MenuItem("Ouvrir le dossier des journaux")) ShellExecuteW(nullptr, L"open", DYN_DATA_DIR, nullptr, nullptr, SW_SHOWNORMAL);
         if (ImGui::MenuItem("Supprimer les anciennes versions")) app.CleanupLegacy();
-        if (ImGui::MenuItem("Désinstaller complètement Dynamo…")) g_openUninstall = true;
+        if (ImGui::MenuItem("Désinstaller complètement KDYN-10…")) g_openUninstall = true;
         if (ImGui::MenuItem("Rechercher une mise à jour")) { app.updater.Start(0); app.updater.CheckNow(); }
         if (ImGui::MenuItem("À propos")) g_openAbout = true;
         ImGui::Separator();
-        if (ImGui::MenuItem("Quitter Dynamo")) U->requestQuit = true;
+        if (ImGui::MenuItem("Quitter KDYN-10")) U->requestQuit = true;
         ImGui::EndPopup();
     }
 }
@@ -964,11 +964,11 @@ static void StatusBar(App& app, ImVec2 p, float w) {
             dot = col::err; msg = sys::ToUtf8(app.router.lastError);
         } else if (!srcDefault) {
             dot = col::warn;
-            snprintf(buf, sizeof(buf), "Windows ne joue plus vers « %s » : le son ne passe pas par Dynamo.", srcN.c_str());
+            snprintf(buf, sizeof(buf), "Windows ne joue plus vers « %s » : le son ne passe pas par KDYN-10.", srcN.c_str());
             msg = buf; action = 6;
         } else {
             dot = col::warn;
-            snprintf(buf, sizeof(buf), "Routage prêt : %s  →  Dynamo  →  %s  —  en attente de son.", srcN.c_str(), dstN.c_str());
+            snprintf(buf, sizeof(buf), "Routage prêt : %s  →  KDYN-10  →  %s  —  en attente de son.", srcN.c_str(), dstN.c_str());
             msg = buf;
         }
     }
@@ -979,7 +979,7 @@ static void StatusBar(App& app, ImVec2 p, float w) {
     }
     else if (!d->installed || true) {
         dot = col::warn;
-        snprintf(buf, sizeof(buf), "Dynamo n'est pas actif. « Activer » : Windows jouera vers une sortie libre de ta carte, Dynamo traitera et enverra le son sur « %s ».", sys::ToUtf8(d->name).c_str());
+        snprintf(buf, sizeof(buf), "KDYN-10 n'est pas actif. « Activer » : Windows jouera vers une sortie libre de ta carte, KDYN-10 traitera et enverra le son sur « %s ».", sys::ToUtf8(d->name).c_str());
         msg = buf; action = 5;
     } else if (st == ENGINE_ACTIVE) {
         dot = app.params.bypass ? col::warn : col::ok;
@@ -995,7 +995,7 @@ static void StatusBar(App& app, ImVec2 p, float w) {
     }
     if (app.RoutingActive() && app.legacyPresent && app.lastError.empty()) {
         dot = col::warn;
-        msg = "Des restes des anciennes versions de Dynamo (1.x) sont encore installés dans Windows.";
+        msg = "Des restes des anciennes versions de Dynamo (1.x, ancien nom de KDYN-10) sont encore installés dans Windows.";
         action = 7;
     }
     if (app.updater.state == Updater::READY && app.lastError.empty()) {
@@ -1008,7 +1008,7 @@ static void StatusBar(App& app, ImVec2 p, float w) {
 
     GlowDot(dl, ImVec2(p.x + S(18), p.y + h / 2), S(4.5f), dot);
     float btnW = 0;
-    const char* btn = action == 8 ? "Redémarrer maintenant" : action == 7 ? "Tout supprimer" : action == 5 ? "Activer" : action == 6 ? "Rediriger vers Dynamo" : action == 1 ? "Installer sur ce périphérique" : action == 2 ? "Définir par défaut" : action == 3 ? "Redémarrer l'audio" : action == 4 ? "Diagnostic et réparation" : nullptr;
+    const char* btn = action == 8 ? "Redémarrer maintenant" : action == 7 ? "Tout supprimer" : action == 5 ? "Activer" : action == 6 ? "Rediriger vers KDYN-10" : action == 1 ? "Installer sur ce périphérique" : action == 2 ? "Définir par défaut" : action == 3 ? "Redémarrer l'audio" : action == 4 ? "Diagnostic et réparation" : nullptr;
     if (!app.lastError.empty()) btn = "OK";
     if (btn) btnW = LabelWidth(U->fLabel, btn) + S(28);
     dl->PushClipRect(p, ImVec2(p.x + w - btnW - S(16), p.y + h), true);
@@ -1347,8 +1347,8 @@ static void LimiterPanel(App& app, ImVec2 pos, ImVec2 size) {
 // ---------------------------------------------------------------- fenetres modales
 static void Modals(App& app) {
     if (g_openSaveAs) { ImGui::OpenPopup("Enregistrer le preset"); g_openSaveAs = false; }
-    if (g_openUninstall) { ImGui::OpenPopup("Désinstaller Dynamo"); g_openUninstall = false; }
-    if (g_openAbout) { ImGui::OpenPopup("À propos de Dynamo"); g_openAbout = false; }
+    if (g_openUninstall) { ImGui::OpenPopup("Désinstaller KDYN-10"); g_openUninstall = false; }
+    if (g_openAbout) { ImGui::OpenPopup("À propos de Kinetik KDYN-10"); g_openAbout = false; }
     if (g_openDiag) { ImGui::OpenPopup("Diagnostic"); g_openDiag = false; }
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 
@@ -1371,7 +1371,7 @@ static void Modals(App& app) {
     }
 
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("Désinstaller Dynamo", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal("Désinstaller KDYN-10", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Retirer le moteur de tous les périphériques, restaurer les effets\nd'origine de Windows et supprimer les fichiers installés ?");
         ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Vos presets personnels sont conservés dans %%APPDATA%%\\Dynamo."); ImGui::PopFont();
         ImGui::Spacing();
@@ -1414,14 +1414,14 @@ static void Modals(App& app) {
     }
 
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("À propos de Dynamo", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal("À propos de Kinetik KDYN-10", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         {
             ImDrawList* adl = ImGui::GetWindowDrawList();
             ImVec2 ap = ImGui::GetCursorScreenPos();
-            ImVec2 ts = TextSize(U->fTitle, "Dynamo");
-            GlowText(adl, U->fTitle, ap, TH->text, TH->accent, "Dynamo");
+            ImVec2 ts = TextSize(U->fTitle, "Kinetik");
+            GlowText(adl, U->fTitle, ap, TH->text, TH->accent, "Kinetik");
             DrawSparkle(adl, ImVec2(ap.x + ts.x + S(16), ap.y + S(14)), S(8.5f), TH->halftone ? TH->btnEdge : TH->accent);
-            Label(adl, U->fLabel, ImVec2(ap.x + ts.x + S(34), ap.y + ts.y / 2), TH->text, "Version " DYN_VERSION_STR, 0);
+            Label(adl, U->fLabel, ImVec2(ap.x + ts.x + S(34), ap.y + ts.y / 2), TH->text, "KDYN-10  ·  version " DYN_VERSION_STR, 0);
             ImGui::Dummy(ImVec2(ts.x + S(160), ts.y));
         }
         {
@@ -1430,13 +1430,14 @@ static void Modals(App& app) {
             case Updater::CHECKING: us = "Recherche de mise à jour…"; break;
             case Updater::DOWNLOADING: us = "Téléchargement d'une mise à jour…"; break;
             case Updater::READY: us = "Nouvelle version installée, active au prochain démarrage."; break;
-            case Updater::UP_TO_DATE: us = "Dynamo est à jour."; break;
+            case Updater::UP_TO_DATE: us = "KDYN-10 est à jour."; break;
             case Updater::FAILED: us = app.updater.lastError; break;
             default: us = app.settings.autoUpdate ? "Mises à jour automatiques activées." : "Mises à jour automatiques désactivées."; break;
             }
             ImGui::PushFont(U->fSmall); ImGui::TextDisabled("%s", us); ImGui::PopFont();
         }
         ImGui::Text("Compresseur, égaliseur paramétrique et limiteur pour tout le son de Windows.");
+        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Anciennement « Dynamo ». Composants tiers : Dear ImGui (licence MIT), polices Instrument Serif,\nIBM Plex Mono et Archivo Black (SIL Open Font License 1.1) : voir THIRD_PARTY_NOTICES.txt."); ImGui::PopFont();
         ImGui::Spacing();
         ImGui::PushFont(U->fSmall);
         ImGui::TextDisabled("Le traitement est inséré directement dans le moteur audio de Windows\n"

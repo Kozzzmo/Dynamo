@@ -57,6 +57,9 @@ jobs:
             exit 0
           fi
           NOTES=$(awk -v v="## $VERSION" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md)
-          [ -n "$NOTES" ] || NOTES="Dynamo $VERSION"
-          gh release create "v$VERSION" build/Dynamo.exe build/latest.txt \
-            --title "Dynamo $VERSION" --notes "$NOTES" --latest
+          [ -n "$NOTES" ] || NOTES="Kinetik KDYN-10 $VERSION"
+          # Dynamo.exe = nom interne lu par la mise a jour automatique des copies installees ;
+          # Kinetik-KDYN10.exe = le meme fichier, sous le nom du produit, pour les nouveaux telechargements.
+          cp build/Dynamo.exe build/Kinetik-KDYN10.exe
+          gh release create "v$VERSION" build/Kinetik-KDYN10.exe build/Dynamo.exe build/latest.txt \
+            --title "Kinetik KDYN-10 $VERSION" --notes "$NOTES" --latest

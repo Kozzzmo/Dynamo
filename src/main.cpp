@@ -82,11 +82,11 @@ static void TrayAdd() {
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_nid.uCallbackMessage = WM_TRAY;
     g_nid.hIcon = (HICON)LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
-    wcscpy_s(g_nid.szTip, L"Dynamo");
+    wcscpy_s(g_nid.szTip, L"Kinetik KDYN-10");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 }
 static void TrayUpdateTip() {
-    std::wstring t = L"Dynamo — " + sys::FromUtf8(g_app.CurrentPresetLabel());
+    std::wstring t = L"KDYN-10 — " + sys::FromUtf8(g_app.CurrentPresetLabel());
     if (g_app.params.bypass) t += L" (contourné)";
     wcsncpy_s(g_nid.szTip, t.c_str(), _TRUNCATE);
     g_nid.uFlags = NIF_TIP;
@@ -116,7 +116,7 @@ static void TrayMenu() {
     HMENU pm = CreatePopupMenu();
     for (int i = 0; i < (int)g_app.presets.size() && i < 90; ++i)
         AppendMenuW(pm, MF_STRING | (i == g_app.currentPreset ? MF_CHECKED : 0), ID_TRAY_PRESET + i, sys::FromUtf8(g_app.presets[i].name).c_str());
-    AppendMenuW(m, MF_STRING | MF_DEFAULT, ID_TRAY_SHOW, L"Ouvrir Dynamo");
+    AppendMenuW(m, MF_STRING | MF_DEFAULT, ID_TRAY_SHOW, L"Ouvrir KDYN-10");
     AppendMenuW(m, MF_POPUP, (UINT_PTR)pm, L"Presets");
     AppendMenuW(m, MF_STRING | (g_app.params.bypass ? MF_CHECKED : 0), ID_TRAY_BYPASS, L"Contourner (son d'origine)");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
@@ -280,7 +280,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     MONITORINFO mi = { sizeof(mi) }; GetMonitorInfoW(mon, &mi);
     int sw = mi.rcWork.right - mi.rcWork.left, shh = mi.rcWork.bottom - mi.rcWork.top;
     if (ww > sw) ww = sw; if (wh > shh) wh = shh;
-    g_hwnd = CreateWindowExW(0, wc.lpszClassName, L"Dynamo " TEXT(DYN_VERSION_SHORT), WS_OVERLAPPEDWINDOW,
+    g_hwnd = CreateWindowExW(0, wc.lpszClassName, L"Kinetik KDYN-10 " TEXT(DYN_VERSION_SHORT), WS_OVERLAPPEDWINDOW,
                              mi.rcWork.left + (sw - ww) / 2, mi.rcWork.top + (shh - wh) / 2, ww, wh, nullptr, nullptr, hInst, nullptr);
     BOOL dark = TRUE;
     DwmSetWindowAttribute(g_hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
@@ -288,7 +288,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     DwmSetWindowAttribute(g_hwnd, 35 /* DWMWA_CAPTION_COLOR */, &cap, sizeof(cap));
 
     if (!CreateDevice(g_hwnd)) {
-        MessageBoxW(nullptr, L"Impossible d'initialiser l'affichage Direct3D 11.", L"Dynamo", MB_ICONERROR);
+        MessageBoxW(nullptr, L"Impossible d'initialiser l'affichage Direct3D 11.", L"Kinetik KDYN-10", MB_ICONERROR);
         return 1;
     }
 

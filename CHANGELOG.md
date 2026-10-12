@@ -1,5 +1,10 @@
 # Historique des versions
 
+## 2.5.0
+- Dynamo devient **Kinetik KDYN-10** (nouveau nom, même logiciel) : logo Kinetik, nom dans la fenêtre, le menu et la zone de notification.
+  Réglages, presets et mises à jour automatiques sont conservés.
+- Licence propriétaire ; composants tiers mentionnés dans « À propos » et dans THIRD_PARTY_NOTICES.txt.
+
 ## 2.4.0
 - Nouveau design dans la famille des plugins Kinetik / J-Slice : logo serif italique avec l'étoile à quatre branches,
   chiffres en Instrument Serif, étiquettes en IBM Plex Mono, potentiomètres à anneau de points, vumètres à LED.

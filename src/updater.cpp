@@ -188,7 +188,7 @@ bool Updater::CheckOnce() {
     HANDLE f = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE) {
         ULog("Ecriture impossible a cote de %ls (%lu)", self.c_str(), GetLastError());
-        snprintf(lastError, sizeof(lastError), "Le dossier de Dynamo n'est pas modifiable.");
+        snprintf(lastError, sizeof(lastError), "Le dossier de KDYN-10 n'est pas modifiable.");
         state = FAILED; return false;
     }
     DWORD w = 0; BOOL ok = WriteFile(f, exe.data(), (DWORD)exe.size(), &w, nullptr);
@@ -197,10 +197,11 @@ bool Updater::CheckOnce() {
 
     std::string product, fileVer;
     ReadExeIdentity(tmp, product, fileVer);
+    // "Dynamo" reste le nom interne (ProductName) : les copies deja installees n'acceptent que ce nom
     if (product != "Dynamo") {
         ULog("Fichier telecharge refuse (produit '%s')", product.c_str());
         DeleteFileW(tmp.c_str());
-        snprintf(lastError, sizeof(lastError), "Fichier reçu refusé (ce n'est pas Dynamo).");
+        snprintf(lastError, sizeof(lastError), "Fichier reçu refusé (ce n'est pas KDYN-10).");
         state = FAILED; return false;
     }
 

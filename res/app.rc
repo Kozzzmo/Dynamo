@@ -18,7 +18,8 @@ BEGIN
   BEGIN
     BLOCK "040C04B0"
     BEGIN
-      VALUE "FileDescription", "Dynamo - compresseur et egaliseur audio"
+      VALUE "FileDescription", "Kinetik KDYN-10 - compresseur et egaliseur audio"
+      // ProductName reste "Dynamo" : nom interne verifie par le systeme de mise a jour des versions deja installees
       VALUE "ProductName", "Dynamo"
       VALUE "FileVersion", DYN_VERSION_STR
       VALUE "ProductVersion", DYN_VERSION_STR
