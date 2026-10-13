@@ -1,5 +1,8 @@
 # Historique des versions
 
+## 2.6.1
+- Skin NEON : le rose devient rouge (limiteur, haut des vumètres), comme dans les plugins Kinetik.
+
 ## 2.6.0
 - Version « propre » pour les antivirus : l'ancien moteur intégré à Windows (APO) est entièrement retiré.
   KDYN-10 ne contient plus de DLL embarquée, ne demande plus jamais les droits administrateur,
