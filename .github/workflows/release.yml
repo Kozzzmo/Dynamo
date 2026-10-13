@@ -59,12 +59,21 @@ jobs:
             echo "::error title=DOWNLOADS_TOKEN manquant::sans ce secret les mises a jour ne peuvent pas etre publiees"; exit 1
           fi
           R=Kozzzmo/kinetik-downloads; T=kdyn10
+          fail() { echo "::error title=kinetik-downloads::$1"; exit 1; }
+          gh api "repos/$R" >/dev/null 2>&1 || fail "depot $R inaccessible avec DOWNLOADS_TOKEN (acces au depot ?)"
+          # un depot vide ne peut pas porter de release : premier commit (README) si besoin
+          if ! gh api "repos/$R/commits?per_page=1" >/dev/null 2>&1; then
+            printf '# Kinetik downloads\n\nInstallers and update files of the Kinetik products (see Releases).\n' > /tmp/readme.md
+            gh api -X PUT "repos/$R/contents/README.md" -f message="Initial commit" \
+              -f content="$(base64 -w0 /tmp/readme.md)" >/dev/null || fail "creation du README impossible (permission Contents : Read and write ?)"
+          fi
           cp build/Dynamo.exe build/Kinetik-KDYN10.exe
           NOTES="Kinetik KDYN-10 $VERSION (Windows 10/11, 64 bits). Telecharger Kinetik-KDYN10.exe ; Dynamo.exe et latest.txt servent aux mises a jour automatiques."
-          gh release view "$T" -R "$R" >/dev/null 2>&1 || gh release create "$T" -R "$R" --title "Kinetik KDYN-10" --notes "$NOTES"
+          gh release view "$T" -R "$R" >/dev/null 2>&1 || gh release create "$T" -R "$R" --title "Kinetik KDYN-10" --notes "$NOTES" \
+            || fail "creation de la release $T impossible"
           # l'exe d'abord, latest.txt ensuite : une copie installee ne voit jamais une version annoncee sans son fichier
-          gh release upload "$T" -R "$R" --clobber build/Kinetik-KDYN10.exe build/Dynamo.exe
-          gh release upload "$T" -R "$R" --clobber build/latest.txt
+          gh release upload "$T" -R "$R" --clobber build/Kinetik-KDYN10.exe build/Dynamo.exe || fail "envoi des exe impossible"
+          gh release upload "$T" -R "$R" --clobber build/latest.txt || fail "envoi de latest.txt impossible"
           gh release edit "$T" -R "$R" --title "Kinetik KDYN-10 $VERSION" --notes "$NOTES"
 
       - name: Publier la version (si elle est nouvelle)
