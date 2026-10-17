@@ -20,6 +20,33 @@
 
 #include "updater.h"
 #include "version.h"
+extern "C" {
+#include "monocypher/monocypher-ed25519.h"
+}
+
+// cle publique de signature des mises a jour Kinetik (la cle privee = secret KINETIK_UPDATE_KEY de la CI)
+static const unsigned char kUpdateKey[32] = {
+    0x59, 0x1d, 0xdc, 0xfe, 0xd6, 0x59, 0xcf, 0xeb, 0x44, 0x1e, 0x69, 0x1f, 0x8b, 0xa6, 0xc6, 0xdc,
+    0x93, 0xe7, 0xef, 0x76, 0x13, 0x32, 0x25, 0x6f, 0xe1, 0xcf, 0xf1, 0x9d, 0x96, 0x0b, 0x7d, 0xfa};
+
+// latest.txt ligne 3 : "sig <128 hex>" = Ed25519 sur "KINETIK-KDYN10 <version> <sha256>\n"
+static bool SignatureOk(const std::string& ver, const std::string& sha, const std::string& sigLine) {
+    if (sigLine.rfind("sig ", 0) != 0 || sigLine.size() != 4 + 128) return false;
+    unsigned char sig[64];
+    for (int i = 0; i < 64; ++i) {
+        unsigned v = 0;
+        for (int k = 0; k < 2; ++k) {
+            const char c = sigLine[4 + i * 2 + k]; v <<= 4;
+            if (c >= '0' && c <= '9') v |= (unsigned)(c - '0');
+            else if (c >= 'a' && c <= 'f') v |= (unsigned)(c - 'a' + 10);
+            else if (c >= 'A' && c <= 'F') v |= (unsigned)(c - 'A' + 10);
+            else return false;
+        }
+        sig[i] = (unsigned char)v;
+    }
+    const std::string msg = "KINETIK-KDYN10 " + ver + " " + sha + "\n";
+    return crypto_ed25519_check(sig, kUpdateKey, (const unsigned char*)msg.data(), msg.size()) == 0;
+}
 
 static const DWORD kMaxExeSize = 64u << 20;
 
@@ -159,11 +186,18 @@ bool Updater::CheckOnce() {
         state = FAILED; return false;
     }
     std::string s(txt.begin(), txt.end());
-    size_t nl = s.find('\n');
-    std::string ver = Trim(s.substr(0, nl)), sha = nl == std::string::npos ? "" : Trim(s.substr(nl + 1));
-    sha = Trim(sha.substr(0, sha.find('\n')));
+    std::vector<std::string> lines;
+    for (size_t p = 0; p <= s.size();) { size_t e = s.find('\n', p); if (e == std::string::npos) e = s.size(); lines.push_back(Trim(s.substr(p, e - p))); p = e + 1; }
+    std::string ver = lines.size() > 0 ? lines[0] : "", sha = lines.size() > 1 ? lines[1] : "", sigLine = lines.size() > 2 ? lines[2] : "";
     for (auto& c : sha) c = (char)tolower((unsigned char)c);
     if (ver.empty() || sha.size() != 64) { snprintf(lastError, sizeof(lastError), "Fichier latest.txt invalide."); state = FAILED; return false; }
+    // une version n'est installee que si elle est signee par la cle Kinetik : un acces au depot de
+    // telechargements ne suffit pas pour faire installer autre chose
+    if (!SignatureOk(ver, sha, sigLine)) {
+        ULog("Signature absente ou invalide pour la version %s", ver.c_str());
+        snprintf(lastError, sizeof(lastError), "Mise à jour %s refusée (signature invalide).", ver.c_str());
+        state = FAILED; return false;
+    }
 
     const char* installed = newVersion[0] ? newVersion : DYN_VERSION_STR;
     if (CompareVersions(ver.c_str(), installed) <= 0) { state = newVersion[0] ? READY : UP_TO_DATE; return true; }

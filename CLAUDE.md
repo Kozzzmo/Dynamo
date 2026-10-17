@@ -19,7 +19,9 @@ Bump `src/version.h`, add a `CHANGELOG.md` section, push to `main`: `.github/wor
 `Kinetik-KDYN10.exe`, `Dynamo.exe` and `latest.txt` to the fixed-tag release `kdyn10` of the PUBLIC repository
 `Kozzzmo/kinetik-downloads` (secret `DOWNLOADS_TOKEN`), then creates `v<version>` here (only if new).
 Installed copies >= 2.7.0 update from `DYN_UPDATE_BASE` (`src/version.h`) = that public release, so this
-repository can be private. Copies <= 2.6.1 still read this repository's latest release: keep it public until they
+repository can be private. `latest.txt` = version, SHA-256, `sig <Ed25519 hex>` over
+"KINETIK-KDYN10 <version> <sha>\n" with the Kinetik update key (secret `KINETIK_UPDATE_KEY`, same key as the plugins);
+copies >= 2.7.1 refuse unsigned updates, so the release job stops when the secret is missing. Copies <= 2.6.1 still read this repository's latest release: keep it public until they
 have updated (they check at start-up and every 6 hours).
 
 ## Working with the owner (read first)

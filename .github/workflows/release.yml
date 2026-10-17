@@ -34,10 +34,18 @@ jobs:
 
       - name: Preparer la publication
         id: meta
+        # latest.txt = version, SHA-256 de Dynamo.exe, puis "sig <Ed25519>" sur "KINETIK-KDYN10 <version> <sha>"
+        # (cle de mise a jour Kinetik, secret KINETIK_UPDATE_KEY). Les copies >= 2.7.1 refusent une version non signee :
+        # sans le secret, la publication s'arrete ici plutot que de publier une version qu'elles ignoreraient.
+        env:
+          KINETIK_UPDATE_KEY: ${{ secrets.KINETIK_UPDATE_KEY }}
         run: |
           VERSION=$(sed -n 's/^#define DYN_VERSION_STR *"\(.*\)".*/\1/p' src/version.h)
           SHA=$(sha256sum build/Dynamo.exe | cut -d' ' -f1)
-          printf '%s\n%s\n' "$VERSION" "$SHA" > build/latest.txt
+          if [ -z "$KINETIK_UPDATE_KEY" ]; then echo "::error title=KINETIK_UPDATE_KEY manquant::la mise a jour doit etre signee"; exit 1; fi
+          pip install --quiet cryptography
+          SIG=$(python3 -c "import os,sys; from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as K; k=K.from_private_bytes(bytes.fromhex(os.environ['KINETIK_UPDATE_KEY'].strip())); print(k.sign(('KINETIK-KDYN10 %s %s\n' % (sys.argv[1], sys.argv[2])).encode()).hex())" "$VERSION" "$SHA")
+          printf '%s\n%s\nsig %s\n' "$VERSION" "$SHA" "$SIG" > build/latest.txt
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version $VERSION — SHA-256 $SHA"
 

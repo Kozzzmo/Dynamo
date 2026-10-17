@@ -1,5 +1,9 @@
 # Historique des versions
 
+## 2.7.1
+- Mises à jour signées : une nouvelle version n'est installée que si elle porte la signature Kinetik (Ed25519),
+  en plus de l'empreinte SHA-256. Un accès au dépôt de téléchargements ne suffit plus pour faire installer autre chose.
+
 ## 2.7.0
 - Les mises à jour automatiques viennent désormais du dépôt public de téléchargements Kinetik
   (github.com/Kozzzmo/kinetik-downloads), pour que le code source puisse devenir privé.

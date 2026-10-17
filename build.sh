@@ -7,13 +7,18 @@ WINDRES=${WINDRES:-x86_64-w64-mingw32-windres}
 STRIP=${STRIP:-x86_64-w64-mingw32-strip}
 IM=third_party/imgui
 mkdir -p build/obj
-FLAGS="-O2 -std=c++17 -DUNICODE -D_UNICODE -DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00 -Isrc -I$IM -I$IM/backends"
+FLAGS="-O2 -std=c++17 -Ithird_party -DUNICODE -D_UNICODE -DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00 -Isrc -I$IM -I$IM/backends"
 # 2. ImGui (une seule fois)
 for f in imgui imgui_draw imgui_tables imgui_widgets; do
   [ -f build/obj/$f.o ] || $CXX $FLAGS -c $IM/$f.cpp -o build/obj/$f.o
 done
 for f in imgui_impl_win32 imgui_impl_dx11; do
   [ -f build/obj/$f.o ] || $CXX $FLAGS -c $IM/backends/$f.cpp -o build/obj/$f.o
+done
+# 2b. Monocypher (verification Ed25519 des mises a jour)
+CC=${CC:-$(echo "$CXX" | sed 's/g++/gcc/')}
+for f in monocypher monocypher-ed25519; do
+  [ -f build/obj/$f.o ] || $CC -O2 -c third_party/monocypher/$f.c -o build/obj/$f.o
 done
 # 3. ressources (icone, manifeste, polices)
 $WINDRES -I res -I src res/app.rc -O coff -o build/obj/app.res.o
