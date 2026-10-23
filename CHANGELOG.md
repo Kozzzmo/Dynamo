@@ -1,5 +1,8 @@
 # Historique des versions
 
+## 2.7.3
+- Textes plus lisibles : étiquettes et boutons en IBM Plex Mono SemiBold, 8 % plus grands ; valeurs 15 % plus grandes.
+
 ## 2.7.2
 - Nouveau logo Kinetik : le symbole « Orbite », décliné dans chaque skin, avec le nom du produit agrandi.
 - Nouvelle icône d'application (barre des tâches, zone de notification, fichier .exe).

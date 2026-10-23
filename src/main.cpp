@@ -211,10 +211,11 @@ static void LoadFonts(float dpi) {
     auto serif = [&](const wchar_t* res, float px) { ImFont* f = fromRes(res, px); fromRes(L"FONT_MONO", px * 0.8f, true, symbols); return f; };
 
     UiFontSet& ms = g_ui.setMonoSerif;
-    ms.body  = fromRes(L"FONT_MONO", 13.0f);
-    ms.small = fromRes(L"FONT_MONO", 11.0f);
-    ms.label = fromRes(L"FONT_MONO_SB", 11.5f);
-    ms.value = serif(L"FONT_SERIF", 19.0f);
+    // 2.7.3: texts in SemiBold and 8 % larger, values 15 % larger (same choice as the Kinetik plug-ins)
+    ms.body  = fromRes(L"FONT_MONO_SB", 13.0f * 1.08f);
+    ms.small = fromRes(L"FONT_MONO_SB", 11.0f * 1.08f);
+    ms.label = fromRes(L"FONT_MONO_SB", 11.5f * 1.08f);
+    ms.value = serif(L"FONT_SERIF", 19.0f * 1.15f);
     ms.num   = serif(L"FONT_SERIF", 28.0f);
 
     UiFontSet& mb = g_ui.setMonoBlack;

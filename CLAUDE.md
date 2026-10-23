@@ -42,3 +42,5 @@ have updated (they check at start-up and every 6 hours).
 The Kinetik "Orbit" mark (`DrawOrbitMark` in `ui.cpp`, colours per skin; RISO = black badge) + the product name in
 Unbounded Bold (`fLogo`, resource `FONT_LOGO`, ASCII subset, OFL). `res/dynamo.ico` = the mark in 9 sizes, made with a
 PIL script (red badge, white satellite).
+
+- Text (2.7.3): mono fonts all SemiBold and x1.08, serif values x1.15 (`LoadFonts`, same choice as the plug-ins).
