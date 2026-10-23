@@ -1,5 +1,8 @@
 # Historique des versions
 
+## 2.7.4
+- Le rose de l'interface devient rouge : limiteur, alertes, crête des vumètres, bandes 1 et 10 de l'égaliseur (skin NEON), et les bandes roses des skins MIDNIGHT et CLASSIC.
+
 ## 2.7.3
 - Textes plus lisibles : étiquettes et boutons en IBM Plex Mono SemiBold, 8 % plus grands ; valeurs 15 % plus grandes.
 

@@ -44,3 +44,5 @@ Unbounded Bold (`fLogo`, resource `FONT_LOGO`, ASCII subset, OFL). `res/dynamo.i
 PIL script (red badge, white satellite).
 
 - Text (2.7.3): mono fonts all SemiBold and x1.08, serif values x1.15 (`LoadFonts`, same choice as the plug-ins).
+- Colours (2.7.4): no pink any more (owner's request): NEON `lim`, `err`, meter high / clip and EQ bands 1 / 2 / 10 are reds /
+  orange; MIDNIGHT band 9 and CLASSIC band 10 red too (`theme.h`).
