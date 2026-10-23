@@ -31,8 +31,14 @@ have updated (they check at start-up and every 6 hours).
   Claude attribution** in commits, PRs or files — the owner asked explicitly (history was rewritten to remove them).
 - The code is **proprietary** (see `LICENSE`). Third-party code is allowed only under a permissive licence and must be
   listed in `THIRD_PARTY_NOTICES.txt`, which ships with every release.
-- Product family: Kinetik (KDSP-16, KMSP-6, J-Slice, KDYN-10). Shared look: serif italic "Kinetik" logo + four-point
-  star, skins NEON (default) / MIDNIGHT / RISO / CLASSIC, Instrument Serif + IBM Plex Mono + Archivo Black (OFL).
+- Product family: Kinetik (KDSP-16, KMSP-6, J-Slice, KDYN-10). Shared look: the Kinetik "Orbit" logo mark + product name in
+  Unbounded Bold, skins NEON (default) / MIDNIGHT / RISO / CLASSIC, Instrument Serif + IBM Plex Mono + Archivo Black + Unbounded (OFL).
 - Launch tracker (claude.ai artifact, tasks in its db collection `tasks`):
   https://claude.ai/artifact/3DAkMghoFDeC59JUTAcdkn — update task status with the ArtifactData tool when work
   from the list is done.
+
+## Logo (2.7.2)
+
+The Kinetik "Orbit" mark (`DrawOrbitMark` in `ui.cpp`, colours per skin; RISO = black badge) + the product name in
+Unbounded Bold (`fLogo`, resource `FONT_LOGO`, ASCII subset, OFL). `res/dynamo.ico` = the mark in 9 sizes, made with a
+PIL script (red badge, white satellite).

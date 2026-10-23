@@ -1,5 +1,9 @@
 # Historique des versions
 
+## 2.7.2
+- Nouveau logo Kinetik : le symbole « Orbite », décliné dans chaque skin, avec le nom du produit agrandi.
+- Nouvelle icône d'application (barre des tâches, zone de notification, fichier .exe).
+
 ## 2.7.1
 - Mises à jour signées : une nouvelle version n'est installée que si elle porte la signature Kinetik (Ed25519),
   en plus de l'empreinte SHA-256. Un accès au dépôt de téléchargements ne suffit plus pour faire installer autre chose.

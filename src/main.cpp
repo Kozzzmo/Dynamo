@@ -231,6 +231,7 @@ static void LoadFonts(float dpi) {
     if (!sa.body) sa = ms;   // pas de Segoe UI (tres rare) : on garde la famille mono
 
     g_ui.fTitle = serif(L"FONT_SERIF_I", 46.0f);
+    g_ui.fLogo = fromRes(L"FONT_LOGO", 28.0f);
     io.FontDefault = ms.body;
 }
 

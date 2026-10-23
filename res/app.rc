@@ -7,6 +7,7 @@ FONT_SERIF_I RCDATA "fonts/InstrumentSerif-Italic.ttf"
 FONT_MONO RCDATA "fonts/IBMPlexMono-Medium.ttf"
 FONT_MONO_SB RCDATA "fonts/IBMPlexMono-SemiBold.ttf"
 FONT_BLACK RCDATA "fonts/ArchivoBlack-Regular.ttf"
+FONT_LOGO RCDATA "fonts/Unbounded-Bold.ttf"
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION DYN_VERSION_RC
 PRODUCTVERSION DYN_VERSION_RC

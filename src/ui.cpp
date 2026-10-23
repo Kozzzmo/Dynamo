@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "ui.h"
+#include <cstring>
 #include "dsp.h"
 #include "version.h"
 #include "theme.h"
@@ -445,7 +446,29 @@ static void DrawGear(ImDrawList* dl, ImVec2 c, float r, ImU32 cl) {
     dl->AddCircleFilled(c, r * 0.12f, cl, 12);
 }
 
-// etoile a quatre branches du logo Kinetik / J-Slice
+// symbole "Orbite" de Kinetik (meme dessin que les plugins) : carre arrondi, anneau + noyau, satellite.
+// tl = coin haut gauche, size = cote de la boite de 120 unites ; couleurs selon le skin.
+static void DrawOrbitMark(ImDrawList* dl, ImVec2 tl, float size) {
+    ImU32 badge = IM_COL32(228, 32, 47, 255), ink = IM_COL32(9, 11, 26, 255), sat = IM_COL32(255, 255, 255, 255);
+    bool glow = false;
+    if (!strcmp(TH->name, "NEON")) glow = true;
+    else if (!strcmp(TH->name, "MIDNIGHT")) { badge = IM_COL32(222, 38, 44, 255); ink = IM_COL32(30, 34, 58, 255); sat = IM_COL32(237, 230, 214, 255); }
+    else if (!strcmp(TH->name, "RISO")) { badge = IM_COL32(24, 16, 14, 255); ink = IM_COL32(214, 69, 43, 255); sat = IM_COL32(255, 244, 236, 255); }
+    else if (!strcmp(TH->name, "CLASSIC")) { ink = IM_COL32(22, 24, 28, 255); }
+    const float u = size / 120.f;
+    auto P = [&](float x, float y) { return ImVec2(tl.x + x * u, tl.y + y * u); };
+    if (glow)
+        for (int k = 4; k >= 1; --k) {
+            const float g = k * 4.f * u;
+            dl->AddRectFilled(P(6 - g / u, 6 - g / u), P(114 + g / u, 114 + g / u), col::alpha(badge, 14), (26 + g / u) * u);
+        }
+    dl->AddRectFilled(P(6, 6), P(114, 114), badge, 26 * u);
+    dl->AddCircle(P(60, 60), 30 * u, ink, 48, 9 * u);
+    dl->AddCircleFilled(P(60, 60), 11 * u, ink, 24);
+    dl->AddCircleFilled(P(84, 38), 10 * u, sat, 24);
+}
+
+// etoile a quatre branches (ancien logo)
 static void DrawSparkle(ImDrawList* dl, ImVec2 c, float s, ImU32 cl) {
     ImVec2 pts[64]; int n = 0;
     const ImVec2 tips[4] = { ImVec2(0, -1), ImVec2(1, 0), ImVec2(0, 1), ImVec2(-1, 0) };
@@ -756,22 +779,19 @@ static void TopBar(App& app, ImVec2 p, float w) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float h = S(kTopH);
 
-    // ---- logo : nom en serif italique + etoile a quatre branches + code produit (comme Kinetik / J-Slice)
+    // ---- logo : symbole Orbite de Kinetik + nom du produit (Unbounded) + sous-titre (comme les plugins)
     {
-        ImFont* lf = U->fTitle;
-        const char* name = "Kinetik";
-        ImVec2 ts = TextSize(lf, name);
-        ImVec2 tp(p.x + S(18), p.y + (h - ts.y) / 2 - S(2));
-        const ImU32 star = TH->halftone ? TH->btnEdge : (TH->knob == KS_ARC ? TH->accent : TH->accent);
-        if (TH->glow) {
-            GlowText(dl, lf, tp, IM_COL32(230, 234, 255, 255), TH->accent, name);
-            dl->AddCircleFilled(ImVec2(tp.x + ts.x + S(16), tp.y + S(14)), S(13), col::alpha(star, 30), 24);
-        } else TextAt(dl, lf, tp, TH->text, name);
-        DrawSparkle(dl, ImVec2(tp.x + ts.x + S(16), tp.y + S(14)), S(8.5f), star);
-        const float sx = tp.x + ts.x + S(34);
-        Label(dl, U->fLabel, ImVec2(sx, p.y + h / 2 - S(8)), TH->text, "KDYN-10", 0);
-        char sub[64]; snprintf(sub, sizeof(sub), "Compresseur · Égaliseur · v%s", DYN_VERSION_SHORT);
-        if (w > S(1240)) Label(dl, U->fSmall, ImVec2(sx, p.y + h / 2 + S(9)), TH->dim, sub, 0);
+        const float ms = S(44);
+        DrawOrbitMark(dl, ImVec2(p.x + S(16), p.y + (h - ms) / 2), ms);
+        const char* name = "KDYN-10";
+        ImVec2 ts = TextSize(U->fLogo, name);
+        const float sx = p.x + S(16) + ms + S(10);
+        ImVec2 tp(sx, p.y + h / 2 - ts.y + S(4));
+        if (TH->glow) GlowText(dl, U->fLogo, tp, IM_COL32(232, 236, 255, 255), TH->accent, name);
+        else TextAt(dl, U->fLogo, tp, TH->text, name);
+        char sub[64]; snprintf(sub, sizeof(sub), "KINETIK  ·  Compresseur · Égaliseur · v%s", DYN_VERSION_SHORT);
+        if (w > S(1240)) Label(dl, U->fSmall, ImVec2(sx + S(1), p.y + h / 2 + S(10)), TH->dim, sub, 0);
+        else Label(dl, U->fSmall, ImVec2(sx + S(1), p.y + h / 2 + S(10)), TH->dim, "KINETIK", 0);
     }
 
     // ---- presets
@@ -1351,11 +1371,12 @@ static void Modals(App& app) {
         {
             ImDrawList* adl = ImGui::GetWindowDrawList();
             ImVec2 ap = ImGui::GetCursorScreenPos();
-            ImVec2 ts = TextSize(U->fTitle, "Kinetik");
-            GlowText(adl, U->fTitle, ap, TH->text, TH->accent, "Kinetik");
-            DrawSparkle(adl, ImVec2(ap.x + ts.x + S(16), ap.y + S(14)), S(8.5f), TH->halftone ? TH->btnEdge : TH->accent);
-            Label(adl, U->fLabel, ImVec2(ap.x + ts.x + S(34), ap.y + ts.y / 2), TH->text, "KDYN-10  ·  version " DYN_VERSION_STR, 0);
-            ImGui::Dummy(ImVec2(ts.x + S(160), ts.y));
+            const float ms = S(52);
+            DrawOrbitMark(adl, ap, ms);
+            ImVec2 ts = TextSize(U->fLogo, "KDYN-10");
+            TextAt(adl, U->fLogo, ImVec2(ap.x + ms + S(12), ap.y + S(2)), TH->text, "KDYN-10");
+            Label(adl, U->fSmall, ImVec2(ap.x + ms + S(13), ap.y + S(40)), TH->dim, "KINETIK  ·  version " DYN_VERSION_STR, 0);
+            ImGui::Dummy(ImVec2(ms + S(12) + std::max(ts.x, S(200)), ms));
         }
         {
             const char* us = "";
@@ -1370,7 +1391,7 @@ static void Modals(App& app) {
             ImGui::PushFont(U->fSmall); ImGui::TextDisabled("%s", us); ImGui::PopFont();
         }
         ImGui::Text("Compresseur, égaliseur paramétrique et limiteur pour tout le son de Windows.");
-        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Anciennement « Dynamo ». Composants tiers : Dear ImGui (licence MIT), polices Instrument Serif,\nIBM Plex Mono et Archivo Black (SIL Open Font License 1.1) : voir THIRD_PARTY_NOTICES.txt."); ImGui::PopFont();
+        ImGui::PushFont(U->fSmall); ImGui::TextDisabled("Anciennement « Dynamo ». Composants tiers : Dear ImGui (licence MIT), polices Instrument Serif,\nIBM Plex Mono, Archivo Black et Unbounded (SIL Open Font License 1.1) : voir THIRD_PARTY_NOTICES.txt."); ImGui::PopFont();
         ImGui::Spacing();
         ImGui::PushFont(U->fSmall);
         ImGui::TextDisabled("Windows joue vers une sortie libre de ta carte son ; KDYN-10 capte ce son, le traite\n"

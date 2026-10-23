@@ -19,7 +19,8 @@ struct UiContext {
     ImFont* fLabel = nullptr;   // petites capitales des sections
     ImFont* fValue = nullptr;
     ImFont* fNum = nullptr;
-    ImFont* fTitle = nullptr;   // logo (serif italique, commun a tous les skins)
+    ImFont* fTitle = nullptr;   // ancien logo (serif italique)
+    ImFont* fLogo = nullptr;    // nom du produit a cote du symbole Orbite (Unbounded Bold)
     // familles chargees au demarrage
     UiFontSet setMonoSerif, setMonoBlack, setSans;
     // skin
